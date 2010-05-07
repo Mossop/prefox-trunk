@@ -1,0 +1,18 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1272335035 25200
+
+[palm] Add webOS to the Http user agent
+
+diff --git a/netwerk/protocol/http/src/nsHttpHandler.cpp b/netwerk/protocol/http/src/nsHttpHandler.cpp
+--- a/netwerk/protocol/http/src/nsHttpHandler.cpp
++++ b/netwerk/protocol/http/src/nsHttpHandler.cpp
+@@ -678,6 +678,8 @@ nsHttpHandler::InitUserAgentComponents()
+     "BeOS"
+ #elif defined(MOZ_X11)
+     "X11"
++#elif defined(WEBOS)
++    "webOS/1.4.1.1"
+ #else
+     "?"
+ #endif

@@ -1,0 +1,223 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271396083 25200
+# Node ID 411ee064b3cb7c40df0bef3fe8bce3e3778fe794
+# Parent  4855ce897bf3effec178fa6ede9499e4e95bd51f
+[palm] Add an idle service
+
+diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
+--- a/widget/src/webos/Makefile.in
++++ b/widget/src/webos/Makefile.in
+@@ -59,6 +59,7 @@ CPPSRCS	= \
+ 	nsWindow.cpp \
+ 	nsLookAndFeel.cpp \
+ 	nsScreenManager.cpp \
++	nsIdleServiceWebOS.cpp \
+ 	$(NULL)
+ 
+ NOT_THERE_YET_CPPSRCS = \
+@@ -70,7 +71,6 @@ NOT_THERE_YET_CPPSRCS = \
+ 	mozqwidget.cpp \
+ 	nsSound.cpp \
+ 	nsFilePicker.cpp \
+-	nsIdleService.cpp \
+ 	nsAccelerometer.cpp \
+ 	$(NULL)
+ 
+diff --git a/widget/src/webos/nsIdleServiceWebOS.cpp b/widget/src/webos/nsIdleServiceWebOS.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsIdleServiceWebOS.cpp
+@@ -0,0 +1,63 @@
++/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* vim:expandtab:shiftwidth=4:tabstop=4:
++ */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ * Gijs Kruitbosch <gijskruitbosch@gmail.com>.
++ * Portions created by the Initial Developer are Copyright (C) 2007
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Michael Wu <mwu@mozilla.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsIdleServiceWebOS.h"
++#include "nsIServiceManager.h"
++
++NS_IMPL_ISUPPORTS1(nsIdleServiceWebOS, nsIIdleService)
++
++nsIdleServiceWebOS::nsIdleServiceWebOS()
++{
++}
++
++nsIdleServiceWebOS::~nsIdleServiceWebOS()
++{
++}
++
++NS_IMETHODIMP
++nsIdleServiceWebOS::GetIdleTime(PRUint32 *aTimeDiff)
++{
++    extern PRUint32 gLastInputEventTime;
++
++    PRUint32 nowTime = PR_IntervalToMicroseconds(PR_IntervalNow());
++    *aTimeDiff = (nowTime - gLastInputEventTime) / 1000;
++    return NS_OK;
++}
++
+diff --git a/widget/src/webos/nsIdleServiceWebOS.h b/widget/src/webos/nsIdleServiceWebOS.h
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsIdleServiceWebOS.h
+@@ -0,0 +1,57 @@
++/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* vim:expandtab:shiftwidth=4:tabstop=4:
++ */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ * Gijs Kruitbosch <gijskruitbosch@gmail.com>.
++ * Portions created by the Initial Developer are Copyright (C) 2007
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Michael Wu <mwu@mozilla.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef nsIdleServiceWebOS_h__
++#define nsIdleServiceWebOS_h__
++
++#include "nsIdleService.h"
++
++class nsIdleServiceWebOS : public nsIdleService
++{
++public:
++    NS_DECL_ISUPPORTS
++    nsIdleServiceWebOS();
++
++    NS_IMETHOD GetIdleTime(PRUint32* idleTime);
++private:
++    ~nsIdleServiceWebOS();
++};
++
++#endif // nsIdleServiceWebOS_h__
+diff --git a/widget/src/webos/nsWidgetFactory.cpp b/widget/src/webos/nsWidgetFactory.cpp
+--- a/widget/src/webos/nsWidgetFactory.cpp
++++ b/widget/src/webos/nsWidgetFactory.cpp
+@@ -51,6 +51,7 @@
+ #include "nsLookAndFeel.h"
+ #include "nsAppShellSingleton.h"
+ #include "nsScreenManager.h"
++#include "nsIdleServiceWebOS.h"
+ 
+ // #include "nsIComponentRegistrar.h"
+ // #include "nsComponentManagerUtils.h"
+@@ -62,7 +63,6 @@
+ //#include "nsClipboard.h"
+ //#include "nsClipboardHelper.h"
+ //#include "nsAccelerometer.h"
+-//#include "nsIdleService.h"
+ //#include "nsDragService.h"
+ //#include "nsSound.h"
+ //#include "nsBidiKeyboard.h"
+@@ -88,13 +88,13 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(nsWindow)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsTransferable)
+ NS_GENERIC_FACTORY_CONSTRUCTOR(nsLookAndFeel)
+ NS_GENERIC_FACTORY_CONSTRUCTOR(nsScreenManager)
++NS_GENERIC_FACTORY_CONSTRUCTOR(nsIdleServiceWebOS)
+ 
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboard)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboardHelper)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsDragService)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsBidiKeyboard)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsAccelerometer)
+-//NS_GENERIC_FACTORY_CONSTRUCTOR(nsIdleService)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsSound)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeTheme)
+ //NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeScrollbar)
+@@ -133,11 +133,11 @@ static const nsModuleComponentInfo compo
+       NS_SCREENMANAGER_CID,
+       "@mozilla.org/gfx/screenmanager;1",
+       nsScreenManagerConstructor },
+-#if 0
+     { "WebOS Idle Service",
+       NS_IDLE_SERVICE_CID,
+       "@mozilla.org/widget/idleservice;1",
+-      nsIdleServiceConstructor },
++      nsIdleServiceWebOSConstructor },
++#if 0
+     { "Accelerometer",
+       NS_ACCELEROMETER_CID,
+       NS_ACCELEROMETER_CONTRACTID,
+diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
+--- a/widget/src/webos/nsWindow.cpp
++++ b/widget/src/webos/nsWindow.cpp
+@@ -626,6 +626,7 @@ nsWindow::OnSDLEvent(SDL_Event *sdlevt) 
+     case SDL_MOUSEBUTTONDOWN:
+     case SDL_MOUSEBUTTONUP:
+     case SDL_MOUSEMOTION: {
++        gLastInputEventTime = PR_IntervalToMicroseconds(PR_IntervalNow());
+         nsIntPoint pt(sdlevt->button.x, sdlevt->button.y);
+         nsWindow* win = FindWindowForPoint(pt);
+         win->OnMouseEvent(sdlevt, pt);
+@@ -633,6 +634,7 @@ nsWindow::OnSDLEvent(SDL_Event *sdlevt) 
+     }
+     case SDL_KEYDOWN:
+     case SDL_KEYUP:
++        gLastInputEventTime = PR_IntervalToMicroseconds(PR_IntervalNow());
+         OnKeyEvent(sdlevt->key);
+         break;
+     }

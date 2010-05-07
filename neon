@@ -1,0 +1,22 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271731401 25200
+
+[palm] Disable NEON code generation to fix hang
+
+diff --git a/gfx/cairo/libpixman/src/Makefile.in b/gfx/cairo/libpixman/src/Makefile.in
+--- a/gfx/cairo/libpixman/src/Makefile.in
++++ b/gfx/cairo/libpixman/src/Makefile.in
+@@ -91,10 +91,12 @@ ifeq (arm,$(findstring arm,$(OS_TEST)))
+ ifdef HAVE_ARM_SIMD
+ USE_ARM_SIMD_GCC=1
+ endif
++ifndef WEBOS
+ ifdef HAVE_ARM_NEON
+ USE_ARM_NEON_GCC=1
+ endif
+ endif
++endif
+ 
+ endif
+ 

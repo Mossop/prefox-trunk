@@ -1,0 +1,141 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271910654 25200
+
+[palm] Add double click detection
+
+diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
+--- a/widget/src/webos/nsWindow.cpp
++++ b/widget/src/webos/nsWindow.cpp
+@@ -66,6 +66,7 @@
+ using namespace mozilla;
+ 
+ PRLogModuleInfo* gWindowLog = nsnull;
++PRLogModuleInfo* gWindowEventLog = nsnull;
+ PRBool gInited = PR_FALSE;
+ 
+ NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
+@@ -124,12 +125,16 @@ nsWindow::nsWindow()
+ #ifdef PR_LOGGING
+     if (!gWindowLog)
+         gWindowLog = PR_NewLogModule("nsWindow");
++    if (!gWindowEventLog)
++        gWindowEventLog = PR_NewLogModule("nsWindowEvents");
+ #endif
+ 
+     PR_LOG(gWindowLog, PR_LOG_DEBUG, ("Window 0x%08x initialized", (void*)this));
+ 
+     mIsVisible = PR_FALSE;
+     mParent = nsnull;
++    mLastClickTime = 0;
++    mClickCount = 0;
+ }
+ 
+ nsWindow::~nsWindow()
+@@ -656,7 +661,7 @@ nsWindow::DispatchKeyEvent(PRUint32 msg,
+ {
+     nsKeyEvent event(PR_TRUE, msg, this);
+ 
+-    PR_LOG(gWindowLog, PR_LOG_DEBUG, ("Got key %d (meta is %d)", event.charCode, gMeta));
++    PR_LOG(gWindowEventLog, PR_LOG_DEBUG, ("Got key %d (meta is %d)", event.charCode, gMeta));
+     if (gMeta) {
+         switch (keysym.sym) {
+         case SDLK_BACKSPACE:
+@@ -760,7 +765,7 @@ nsWindow::DispatchKeyEvent(PRUint32 msg,
+             event.charCode = '*';
+             break;
+         default:
+-            PR_LOG(gWindowLog, PR_LOG_ERROR, ("Unknown key code %d", keysym.sym));
++            PR_LOG(gWindowEventLog, PR_LOG_ERROR, ("Unknown key code %d", keysym.sym));
+             return;
+         }
+     }
+@@ -820,7 +825,7 @@ nsWindow::DispatchKeyEvent(PRUint32 msg,
+             }
+             break;
+         default:
+-            PR_LOG(gWindowLog, PR_LOG_ERROR, ("Unknown key code %d", keysym.sym));
++            PR_LOG(gWindowEventLog, PR_LOG_ERROR, ("Unknown key code %d", keysym.sym));
+             return;
+         }
+     }
+@@ -861,7 +866,7 @@ nsWindow::OnKeyEvent(SDL_KeyboardEvent &
+         msg = NS_KEY_UP;
+         break;
+     default:
+-        PR_LOG(gWindowLog, PR_LOG_ERROR, ("Unknown key action event %d", keyevt.type));
++        PR_LOG(gWindowEventLog, PR_LOG_ERROR, ("Unknown key action event %d", keyevt.type));
+         return;
+     }
+ 
+@@ -887,13 +892,13 @@ nsWindow::OnMouseEvent(SDL_Event *sdlevt
+     pt.x -= offset.x;
+     pt.y -= offset.y;
+ 
+-    PR_LOG(gWindowLog, PR_LOG_DEBUG, 
++    PR_LOG(gWindowEventLog, PR_LOG_DEBUG, 
+            ("Window 0x%08x Mouse event dispatched to % 3d,% 3d", (void*)this, pt.x, pt.y));
+ 
+     if (pt.x < 0 || pt.x >= mBounds.width ||
+         pt.y < 0 || pt.y >= mBounds.height)
+     {
+-        PR_LOG(gWindowLog, PR_LOG_WARNING, 
++        PR_LOG(gWindowEventLog, PR_LOG_WARNING, 
+                ("Event is out of bounds % 3dx% 3d", (void*)this, mBounds.width, mBounds.height));
+         return;
+     }
+@@ -910,24 +915,32 @@ nsWindow::OnMouseEvent(SDL_Event *sdlevt
+         msg = NS_MOUSE_MOVE;
+         break;
+     default:
+-        PR_LOG(gWindowLog, PR_LOG_ERROR, ("Unknown mouse event %d", sdlevt->type));
++        PR_LOG(gWindowEventLog, PR_LOG_ERROR, ("Unknown mouse event %d", sdlevt->type));
+         return;
+     }
+ 
+-    nsMouseEvent event(PR_TRUE,
+-                       msg, this,
+-                       nsMouseEvent::eReal, nsMouseEvent::eNormal);
++    nsMouseEvent event(PR_TRUE, msg, this, nsMouseEvent::eReal, nsMouseEvent::eNormal);
+     InitEvent(event, &pt);
++    event.time = PR_Now() / 1000;
+ 
+     if (msg != NS_MOUSE_MOVE)
+     {
+-        // XXX can we synthesize different buttons?
++        if (!mLastClickTime || ((gLastInputEventTime - mLastClickTime) > 500000)) {
++            mClickCount = 0;
++        }
++        // TODO add position checking
++
++        mLastClickPosition = pt;
++        mLastClickTime = gLastInputEventTime;
++        if (msg == NS_MOUSE_BUTTON_DOWN) {
++            mClickCount++;
++        }
++
+         event.button = nsMouseEvent::eLeftButton;
+-        event.clickCount = 1;
++        event.clickCount = mClickCount;
+     }
+ 
+-    // XXX add the double-click handling logic here
+-
++    PR_LOG(gWindowEventLog, PR_LOG_ERROR, ("Dispatching mouse event %d with click count %d", msg, mClickCount));
+     DispatchEvent(&event);
+ }
+ 
+diff --git a/widget/src/webos/nsWindow.h b/widget/src/webos/nsWindow.h
+--- a/widget/src/webos/nsWindow.h
++++ b/widget/src/webos/nsWindow.h
+@@ -161,6 +161,10 @@ protected:
+     nsTArray<nsWindow*> mChildren;
+     nsWindow* mParent;
+ 
++    PRUint32 mClickCount;
++    PRUint32 mLastClickTime;
++    nsIntPoint mLastClickPosition;
++
+     void OnMouseEvent(SDL_Event *sdlevt, nsIntPoint pt);
+     void DispatchKeyEvent(PRUint32 msg, SDL_keysym &keysym);
+     void OnKeyEvent(SDL_KeyboardEvent &keyevt);

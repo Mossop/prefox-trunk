@@ -1,0 +1,114 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271808815 25200
+
+[palm] Miscellaneous build fixes from the android2 branch
+
+diff --git a/uriloader/exthandler/Makefile.in b/uriloader/exthandler/Makefile.in
+--- a/uriloader/exthandler/Makefile.in
++++ b/uriloader/exthandler/Makefile.in
+@@ -86,7 +86,7 @@ endif
+ LOCAL_INCLUDES = -I$(srcdir)
+ 
+ ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
+-OSHELPER	+= nsGNOMERegistry.cpp
++OSHELPER  += nsGNOMERegistry.cpp
+ OSHELPER  += nsMIMEInfoUnix.cpp
+ endif
+ 
+diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp b/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
+--- a/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
++++ b/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
+@@ -45,10 +45,14 @@
+ #endif
+ 
+ #include "nsMIMEInfoUnix.h"
++#include "nsAutoPtr.h"
++
++#ifdef MOZ_WIDGET_GTK2
+ #include "nsGNOMERegistry.h"
+ #include "nsIGIOService.h"
+ #include "nsIGnomeVFSService.h"
+-#include "nsAutoPtr.h"
++#endif
++
+ #ifdef MOZ_ENABLE_DBUS
+ #include "nsDBusHandlerApp.h"
+ #endif
+@@ -56,6 +60,7 @@
+ nsresult
+ nsMIMEInfoUnix::LoadUriInternal(nsIURI * aURI)
+ {
++#ifdef MOZ_WIDGET_GTK2
+   nsresult rv = nsGNOMERegistry::LoadURL(aURI);
+ #if (MOZ_PLATFORM_MAEMO == 5) && defined (MOZ_ENABLE_GNOMEVFS)
+   if (NS_FAILED(rv)){
+@@ -70,11 +75,15 @@ nsMIMEInfoUnix::LoadUriInternal(nsIURI *
+   }
+ #endif
+   return rv;
++#else
++  return NS_ERROR_NOT_IMPLEMENTED;
++#endif
+ }
+ 
+ NS_IMETHODIMP
+ nsMIMEInfoUnix::GetHasDefaultHandler(PRBool *_retval)
+ {
++#ifdef MOZ_WIDGET_GTK2
+   *_retval = PR_FALSE;
+   nsRefPtr<nsMIMEInfoBase> mimeInfo = nsGNOMERegistry::GetFromType(mType);
+   if (!mimeInfo) {
+@@ -98,6 +107,7 @@ nsMIMEInfoUnix::GetHasDefaultHandler(PRB
+     return NS_OK;
+   }
+ #endif
++#endif
+ 
+   // If we didn't find a VFS handler, fallback.
+   return nsMIMEInfoImpl::GetHasDefaultHandler(_retval);
+@@ -114,6 +124,7 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(ns
+     return NS_OK;
+ #endif
+ 
++#ifdef MOZ_WIDGET_GTK2
+   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
+   nsCOMPtr<nsIGnomeVFSService> gnomevfs = do_GetService(NS_GNOMEVFSSERVICE_CONTRACTID);
+   if (giovfs) {
+@@ -143,6 +154,7 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(ns
+         return app->Launch(nativePath);
+     }
+   }
++#endif
+ 
+   if (!mDefaultApplication)
+     return NS_ERROR_FILE_NOT_FOUND;
+diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.h b/uriloader/exthandler/unix/nsMIMEInfoUnix.h
+--- a/uriloader/exthandler/unix/nsMIMEInfoUnix.h
++++ b/uriloader/exthandler/unix/nsMIMEInfoUnix.h
+@@ -49,7 +49,9 @@ public:
+   nsMIMEInfoUnix(const nsACString& aMIMEType) : nsMIMEInfoImpl(aMIMEType) {}
+   nsMIMEInfoUnix(const nsACString& aType, HandlerClass aClass) :
+     nsMIMEInfoImpl(aType, aClass) {}
++#ifdef MOZ_WIDGET_GTK2
+   static PRBool HandlerExists(const char *aProtocolScheme);
++#endif
+ 
+ protected:
+   NS_IMETHOD GetHasDefaultHandler(PRBool *_retval);
+diff --git a/xpcom/typelib/xpidl/Makefile.in b/xpcom/typelib/xpidl/Makefile.in
+--- a/xpcom/typelib/xpidl/Makefile.in
++++ b/xpcom/typelib/xpidl/Makefile.in
+@@ -44,8 +44,10 @@ include $(DEPTH)/config/autoconf.mk
+ 
+ MODULE		= xpcom
+ 
+-ifneq (,$(filter-out WINCE SYMBIAN,$(OS_ARCH)))
+-# Sadly, the code here is too smart for the WinCE/Symbian compiler's brain
++# there's no reason to build a target xpidl, why do we do this at all?
++##ifneq (,$(filter-out WINCE SYMBIAN,$(OS_ARCH)))
++### Sadly, the code here is too smart for the WinCE/Symbian compiler's brain
++ifndef CROSS_COMPILE
+ PROGRAM		= xpidl$(BIN_SUFFIX)
+ SDK_BINARY  = $(PROGRAM)
+ endif

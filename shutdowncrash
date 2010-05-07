@@ -1,0 +1,23 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271294806 25200
+# Node ID ba3f2002dbf22292644b328dba05b8e802016e6a
+# Parent  c86d50d9a55c4b770840192c665f451a08e9264c
+[palm] Fix shutdown crash
+
+diff --git a/gfx/thebes/src/gfxFT2Fonts.cpp b/gfx/thebes/src/gfxFT2Fonts.cpp
+--- a/gfx/thebes/src/gfxFT2Fonts.cpp
++++ b/gfx/thebes/src/gfxFT2Fonts.cpp
+@@ -109,10 +109,12 @@ FontEntry::~FontEntry()
+     // Do nothing for mFTFace here since FTFontDestroyFunc is called by cairo.
+     mFTFace = nsnull;
+ 
++#if !defined(WEBOS)
+     if (mFontFace) {
+         cairo_font_face_destroy(mFontFace);
+         mFontFace = nsnull;
+     }
++#endif
+ }
+ 
+ /* static */

@@ -1,0 +1,2975 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1273181070 25200
+# Node ID 5ab7ee57ac5501afbbadb071d2d05c21d8570836
+# Parent  34c33efd206ab157ee8c1ab5a6ef8a56ee89c4d7
+[palm] Add Web OS widget implementation
+
+diff --git a/toolkit/library/libxul-config.mk b/toolkit/library/libxul-config.mk
+--- a/toolkit/library/libxul-config.mk
++++ b/toolkit/library/libxul-config.mk
+@@ -305,6 +305,10 @@ DEFINES += -DICON_DECODER
+ COMPONENT_LIBS += imgicon
+ endif
+ 
++ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
++COMPONENT_LIBS += widget_webos
++endif
++
+ STATIC_LIBS += thebes ycbcr
+ COMPONENT_LIBS += gkgfxthebes
+ 
+@@ -387,3 +391,7 @@ endif
+ ifdef HAVE_CLOCK_MONOTONIC
+ EXTRA_DSO_LDOPTS += $(REALTIME_LIBS)
+ endif
++
++ifdef WEBOS
++OS_LIBS += -lGLESv2 -lSDL
++endif
+diff --git a/toolkit/library/nsStaticXULComponents.cpp b/toolkit/library/nsStaticXULComponents.cpp
+--- a/toolkit/library/nsStaticXULComponents.cpp
++++ b/toolkit/library/nsStaticXULComponents.cpp
+@@ -84,7 +84,7 @@
+ #elif defined(MOZ_WIDGET_QT)
+ #  define WIDGET_MODULES MODULE(nsWidgetQtModule)
+ #elif defined(MOZ_WIDGET_WEBOS)
+-#  define WIDGET_MODULES
++#  define WIDGET_MODULES MODULE(nsWidgetWebOSModule)
+ #else
+ #  error Unknown widget module.
+ #endif
+diff --git a/widget/src/Makefile.in b/widget/src/Makefile.in
+--- a/widget/src/Makefile.in
++++ b/widget/src/Makefile.in
+@@ -46,7 +46,7 @@ MODULE  = widget
+ 
+ DIRS		= xpwidgets
+ 
+-ifneq (,$(filter beos os2 cocoa qt,$(MOZ_WIDGET_TOOLKIT)))
++ifneq (,$(filter beos os2 cocoa qt webos,$(MOZ_WIDGET_TOOLKIT)))
+ DIRS		+= $(MOZ_WIDGET_TOOLKIT)
+ endif
+ 
+diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/Makefile.in
+@@ -0,0 +1,101 @@
++# ***** BEGIN LICENSE BLOCK *****
++# Version: MPL 1.1/GPL 2.0/LGPL 2.1
++#
++# The contents of this file are subject to the Mozilla Public License Version
++# 1.1 (the "License"); you may not use this file except in compliance with
++# the License. You may obtain a copy of the License at
++# http://www.mozilla.org/MPL/
++#
++# Software distributed under the License is distributed on an "AS IS" basis,
++# WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++# for the specific language governing rights and limitations under the
++# License.
++#
++# The Original Code is mozilla.org code.
++#
++# The Initial Developer of the Original Code is
++#   Mozilla Corp
++# Portions created by the Initial Developer are Copyright (C) 2009
++# the Initial Developer. All Rights Reserved.
++#
++# Contributor(s):
++#   Vladimir Vukicevic <vladimir@pobox.com>
++#   Dave Townsend <dtownsend@oxymoronical.com>
++#
++# Alternatively, the contents of this file may be used under the terms of
++# either the GNU General Public License Version 2 or later (the "GPL"), or
++# the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++# in which case the provisions of the GPL or the LGPL are applicable instead
++# of those above. If you wish to allow use of your version of this file only
++# under the terms of either the GPL or the LGPL, and not to allow others to
++# use your version of this file under the terms of the MPL, indicate your
++# decision by deleting the provisions above and replace them with the notice
++# and other provisions required by the GPL or the LGPL. If you do not delete
++# the provisions above, a recipient may use your version of this file under
++# the terms of any one of the MPL, the GPL or the LGPL.
++#
++# ***** END LICENSE BLOCK *****
++
++DEPTH		= ../../..
++topsrcdir	= @top_srcdir@
++srcdir		= @srcdir@
++VPATH		= @srcdir@
++
++include $(DEPTH)/config/autoconf.mk
++
++MODULE		= widget
++LIBRARY_NAME	= widget_webos
++EXPORT_LIBRARY  = 1
++IS_COMPONENT    = 1
++MODULE_NAME	= nsWidgetWebOSModule
++GRE_MODULE	= 1
++LIBXUL_LIBRARY	= 1
++
++OS_CXXFLAGS := $(filter-out -pedantic,$(OS_CXXFLAGS))
++
++CPPSRCS	= \
++	nsWidgetFactory.cpp \
++	nsAppShell.cpp \
++	nsToolkit.cpp \
++	nsWindow.cpp \
++	nsLookAndFeel.cpp \
++	nsScreenManager.cpp \
++	$(NULL)
++
++NOT_THERE_YET_CPPSRCS = \
++	nsQtKeyUtils.cpp \
++	nsClipboard.cpp \
++	nsBidiKeyboard.cpp \
++	nsDragService.cpp \
++	nsNativeThemeQt.cpp \
++	mozqwidget.cpp \
++	nsSound.cpp \
++	nsFilePicker.cpp \
++	nsIdleService.cpp \
++	nsAccelerometer.cpp \
++	$(NULL)
++
++SHARED_LIBRARY_LIBS = ../xpwidgets/libxpwidgets_s.a
++
++EXTRA_DSO_LDOPTS = \
++	$(MOZ_COMPONENT_LIBS) \
++	-lgkgfx \
++	-lthebes \
++	$(MOZ_JS_LIBS) \
++	$(QCMS_LIBS) \
++	-lGLESv2 \
++	-lSDL \
++	$(NULL)
++
++EXTRA_DSO_LDOPTS += -L$(DIST)/lib
++
++include $(topsrcdir)/config/rules.mk
++
++DEFINES		+= -D_IMPL_NS_WIDGET
++#DEFINES		+= -DDEBUG_WIDGETS
++
++LOCAL_INCLUDES	+= \
++	-I$(topsrcdir)/widget/src/xpwidgets \
++	-I$(srcdir) \
++	$(NULL)
++
+diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsAppShell.cpp
+@@ -0,0 +1,119 @@
++/* -*- Mode: c++; tab-width: 40; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsAppShell.h"
++#include "nsWindow.h"
++#include "nsThreadUtils.h"
++
++#include "prenv.h"
++
++#include <pthread.h>
++
++#include "SDL/SDL.h"
++
++using namespace mozilla;
++
++#define EVLOG(args...) printf(args); printf("\n")
++
++nsAppShell *nsAppShell::gAppShell = nsnull;
++
++nsAppShell::nsAppShell()
++{
++    gAppShell = this;
++}
++
++nsAppShell::~nsAppShell()
++{
++    gAppShell = nsnull;
++}
++
++nsresult
++nsAppShell::Init()
++{
++#ifdef PR_LOGGING
++    if (!gWidgetLog)
++        gWidgetLog = PR_NewLogModule("Widget");
++#endif
++
++    return nsBaseAppShell::Init();
++}
++
++void
++nsAppShell::ScheduleNativeEventCallback()
++{
++}
++
++void
++nsAppShell::ScheduleRedraw()
++{
++    SDL_Event sdlevt;
++    sdlevt.type = SDL_USEREVENT;
++    sdlevt.user.code = WEBOS_EVENT_REDRAW;
++    SDL_PushEvent(&sdlevt);
++}
++
++PRBool
++nsAppShell::ProcessNextNativeEvent(PRBool mayWait)
++{
++    SDL_Event event;
++    int count = SDL_PollEvent(&event);
++
++    if (count == 0)
++        return PR_FALSE;
++
++    if (event.type == SDL_USEREVENT && event.user.code == WEBOS_EVENT_REDRAW)
++    {
++        // Coalesce any redraw events in the queue
++        SDL_Event pendingEvent;
++        while (true)
++        {
++            count = SDL_PeepEvents(&pendingEvent, 1, SDL_PEEKEVENT, SDL_EVENTMASK (SDL_USEREVENT));
++            if (count <= 0)
++                break;
++            if (pendingEvent.user.code != WEBOS_EVENT_REDRAW)
++                break;
++            SDL_PollEvent(&event);
++        }
++    }
++
++    EVLOG("Got event %d", event.type);
++
++    nsWindow::OnGlobalSDLEvent(&event);
++
++    return PR_TRUE;
++}
+diff --git a/widget/src/webos/nsAppShell.h b/widget/src/webos/nsAppShell.h
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsAppShell.h
+@@ -0,0 +1,67 @@
++/* -*- Mode: c++; tab-width: 40; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef nsAppShell_h__
++#define nsAppShell_h__
++
++#include "nsBaseAppShell.h"
++#include "nsCOMPtr.h"
++
++#include "prcvar.h"
++
++#define WEBOS_EVENT_REDRAW 1
++
++class nsAppShell :
++    public nsBaseAppShell
++{
++public:
++    static nsAppShell *gAppShell;
++
++    nsAppShell();
++
++    nsresult Init();
++    static void ScheduleRedraw();
++
++protected:
++    virtual void ScheduleNativeEventCallback();
++    virtual PRBool ProcessNextNativeEvent(PRBool mayWait);
++    virtual ~nsAppShell();
++};
++
++#endif // nsAppShell_h__
++
+diff --git a/widget/src/webos/nsLookAndFeel.cpp b/widget/src/webos/nsLookAndFeel.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsLookAndFeel.cpp
+@@ -0,0 +1,610 @@
++/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsLookAndFeel.h"
++
++nsLookAndFeel::nsLookAndFeel()
++    : nsXPLookAndFeel()
++{
++}
++
++nsLookAndFeel::~nsLookAndFeel()
++{
++}
++
++nsresult
++nsLookAndFeel::NativeGetColor(const nsColorID aID, nscolor &aColor)
++{
++    nsresult rv = NS_OK;
++
++#define BASE_ACTIVE_COLOR     NS_RGB(0xaa,0xaa,0xaa)
++#define BASE_NORMAL_COLOR     NS_RGB(0xff,0xff,0xff)
++#define BASE_SELECTED_COLOR   NS_RGB(0xaa,0xaa,0xaa)
++#define BG_ACTIVE_COLOR       NS_RGB(0xff,0xff,0xff)
++#define BG_INSENSITIVE_COLOR  NS_RGB(0xaa,0xaa,0xaa)
++#define BG_NORMAL_COLOR       NS_RGB(0xff,0xff,0xff)
++#define BG_PRELIGHT_COLOR     NS_RGB(0xee,0xee,0xee)
++#define BG_SELECTED_COLOR     NS_RGB(0x99,0x99,0x99)
++#define DARK_NORMAL_COLOR     NS_RGB(0x88,0x88,0x88)
++#define FG_INSENSITIVE_COLOR  NS_RGB(0x44,0x44,0x44)
++#define FG_NORMAL_COLOR       NS_RGB(0x00,0x00,0x00)
++#define FG_PRELIGHT_COLOR     NS_RGB(0x77,0x77,0x77)
++#define FG_SELECTED_COLOR     NS_RGB(0xaa,0xaa,0xaa)
++#define LIGHT_NORMAL_COLOR    NS_RGB(0xaa,0xaa,0xaa)
++#define TEXT_ACTIVE_COLOR     NS_RGB(0x99,0x99,0x99)
++#define TEXT_NORMAL_COLOR     NS_RGB(0x00,0x00,0x00)
++#define TEXT_SELECTED_COLOR   NS_RGB(0x00,0x00,0x00)
++
++    // XXX we'll want to use context.obtainStyledAttributes on the java side to
++    // get all of these; see TextView.java for a good exmaple.
++
++    switch (aID) {
++        // These colors don't seem to be used for anything anymore in Mozilla
++        // (except here at least TextSelectBackground and TextSelectForeground)
++        // The CSS2 colors below are used.
++    case eColor_WindowBackground:
++        aColor = BASE_NORMAL_COLOR;
++        break;
++    case eColor_WindowForeground:
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor_WidgetBackground:
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_WidgetForeground:
++        aColor = FG_NORMAL_COLOR;
++        break;
++    case eColor_WidgetSelectBackground:
++        aColor = BG_SELECTED_COLOR;
++        break;
++    case eColor_WidgetSelectForeground:
++        aColor = FG_SELECTED_COLOR;
++        break;
++    case eColor_Widget3DHighlight:
++        aColor = NS_RGB(0xa0,0xa0,0xa0);
++        break;
++    case eColor_Widget3DShadow:
++        aColor = NS_RGB(0x40,0x40,0x40);
++        break;
++    case eColor_TextBackground:
++        // not used?
++        aColor = BASE_NORMAL_COLOR;
++        break;
++    case eColor_TextForeground: 
++        // not used?
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor_TextSelectBackground:
++    case eColor_IMESelectedRawTextBackground:
++    case eColor_IMESelectedConvertedTextBackground:
++        // still used
++        aColor = BASE_SELECTED_COLOR;
++        break;
++    case eColor_TextSelectForeground:
++    case eColor_IMESelectedRawTextForeground:
++    case eColor_IMESelectedConvertedTextForeground:
++        // still used
++        aColor = TEXT_SELECTED_COLOR;
++        break;
++    case eColor_IMERawInputBackground:
++    case eColor_IMEConvertedTextBackground:
++        aColor = NS_TRANSPARENT;
++        break;
++    case eColor_IMERawInputForeground:
++    case eColor_IMEConvertedTextForeground:
++        aColor = NS_SAME_AS_FOREGROUND_COLOR;
++        break;
++    case eColor_IMERawInputUnderline:
++    case eColor_IMEConvertedTextUnderline:
++        aColor = NS_SAME_AS_FOREGROUND_COLOR;
++        break;
++    case eColor_IMESelectedRawTextUnderline:
++    case eColor_IMESelectedConvertedTextUnderline:
++        aColor = NS_TRANSPARENT;
++        break;
++    case eColor_SpellCheckerUnderline:
++      aColor = NS_RGB(0xff, 0, 0);
++      break;
++
++        // css2  http://www.w3.org/TR/REC-CSS2/ui.html#system-colors
++    case eColor_activeborder:
++        // active window border
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_activecaption:
++        // active window caption background
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_appworkspace:
++        // MDI background color
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_background:
++        // desktop background
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_captiontext:
++        // text in active window caption, size box, and scrollbar arrow box (!)
++        aColor = FG_NORMAL_COLOR;
++        break;
++    case eColor_graytext:
++        // disabled text in windows, menus, etc.
++        aColor = FG_INSENSITIVE_COLOR;
++        break;
++    case eColor_highlight:
++        // background of selected item
++        aColor = BASE_SELECTED_COLOR;
++        break;
++    case eColor_highlighttext:
++        // text of selected item
++        aColor = TEXT_SELECTED_COLOR;
++        break;
++    case eColor_inactiveborder:
++        // inactive window border
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_inactivecaption:
++        // inactive window caption
++        aColor = BG_INSENSITIVE_COLOR;
++        break;
++    case eColor_inactivecaptiontext:
++        // text in inactive window caption
++        aColor = FG_INSENSITIVE_COLOR;
++        break;
++    case eColor_infobackground:
++        // tooltip background color
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_infotext:
++        // tooltip text color
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor_menu:
++        // menu background
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor_menutext:
++        // menu text
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor_scrollbar:
++        // scrollbar gray area
++        aColor = BG_ACTIVE_COLOR;
++        break;
++
++    case eColor_threedface:
++    case eColor_buttonface:
++        // 3-D face color
++        aColor = BG_NORMAL_COLOR;
++        break;
++
++    case eColor_buttontext:
++        // text on push buttons
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++
++    case eColor_buttonhighlight:
++        // 3-D highlighted edge color
++    case eColor_threedhighlight:
++        // 3-D highlighted outer edge color
++        aColor = LIGHT_NORMAL_COLOR;
++        break;
++
++    case eColor_threedlightshadow:
++        // 3-D highlighted inner edge color
++        aColor = BG_NORMAL_COLOR;
++        break;
++
++    case eColor_buttonshadow:
++        // 3-D shadow edge color
++    case eColor_threedshadow:
++        // 3-D shadow inner edge color
++        aColor = DARK_NORMAL_COLOR;
++        break;
++
++    case eColor_threeddarkshadow:
++        // 3-D shadow outer edge color
++        aColor = NS_RGB(0,0,0);
++        break;
++
++    case eColor_window:
++    case eColor_windowframe:
++        aColor = BG_NORMAL_COLOR;
++        break;
++
++    case eColor_windowtext:
++        aColor = FG_NORMAL_COLOR;
++        break;
++
++    case eColor__moz_eventreerow:
++    case eColor__moz_field:
++        aColor = BASE_NORMAL_COLOR;
++        break;
++    case eColor__moz_fieldtext:
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor__moz_dialog:
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor__moz_dialogtext:
++        aColor = FG_NORMAL_COLOR;
++        break;
++    case eColor__moz_dragtargetzone:
++        aColor = BG_SELECTED_COLOR;
++        break; 
++    case eColor__moz_buttondefault:
++        // default button border color
++        aColor = NS_RGB(0,0,0);
++        break;
++    case eColor__moz_buttonhoverface:
++        aColor = BG_PRELIGHT_COLOR;
++        break;
++    case eColor__moz_buttonhovertext:
++        aColor = FG_PRELIGHT_COLOR;
++        break;
++    case eColor__moz_cellhighlight:
++    case eColor__moz_html_cellhighlight:
++        aColor = BASE_ACTIVE_COLOR;
++        break;
++    case eColor__moz_cellhighlighttext:
++    case eColor__moz_html_cellhighlighttext:
++        aColor = TEXT_ACTIVE_COLOR;
++        break;
++    case eColor__moz_menuhover:
++        aColor = BG_PRELIGHT_COLOR;
++        break;
++    case eColor__moz_menuhovertext:
++        aColor = FG_PRELIGHT_COLOR;
++        break;
++    case eColor__moz_oddtreerow:
++        aColor = NS_TRANSPARENT;
++        break;
++    case eColor__moz_nativehyperlinktext:
++        aColor = NS_SAME_AS_FOREGROUND_COLOR;
++        break;
++    case eColor__moz_comboboxtext:
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor__moz_combobox:
++        aColor = BG_NORMAL_COLOR;
++        break;
++    case eColor__moz_menubartext:
++        aColor = TEXT_NORMAL_COLOR;
++        break;
++    case eColor__moz_menubarhovertext:
++        aColor = FG_PRELIGHT_COLOR;
++        break;
++    default:
++        /* default color is BLACK */
++        aColor = 0;
++        rv = NS_ERROR_FAILURE;
++        break;
++    }
++
++#if 0
++#define WHITE aColor = NS_RGB(0xff,0xff,0xff); break
++#define BLACK aColor = NS_RGB(0x00,0x00,0x00); break
++#define GRAY  aColor = NS_RGB(0xaa,0xaa,0xaa); break
++#define TRANSPARENT aColor = NS_TRANSPARENT; break
++#define FOREGROUND aColor = NS_SAME_AS_FOREGROUND_COLOR; break
++
++    switch (aID) {
++        case eColor_IMERawInputBackground:
++        case eColor_IMEConvertedTextBackground:
++        case eColor_IMESelectedRawTextUnderline:
++        case eColor_IMESelectedConvertedTextUnderline:
++            TRANSPARENT;
++
++        case eColor_IMERawInputForeground:
++        case eColor_IMEConvertedTextForeground:
++        case eColor_IMERawInputUnderline:
++        case eColor_IMEConvertedTextUnderline:
++            FOREGROUND;
++
++
++        case eColor_WindowBackground:
++        case eColor_WidgetSelectForeground:
++        case eColor_TextBackground:
++        case eColor_TextSelectForeground:
++        case eColor_IMESelectedRawTextBackground:
++        case eColor_IMESelectedConvertedTextBackground:
++        case eColor_background:
++        case eColor_inactiveborder:
++        case eColor_inactivecaption:
++        case eColor_inactivecaptiontext:
++        case eColor_infobackground:
++        case eColor_menu:
++        case eColor__moz_menubartext:
++        case eColor_scrollbar:
++        case eColor_threedface:
++        case eColor_buttonface:
++        case eColor_buttonhighlight:
++        case eColor_threedhighlight:
++            WHITE;
++
++        case eColor_IMESelectedRawTextForeground:
++        case eColor_IMESelectedConvertedTextForeground:
++        case eColor_IMERawInputForeground:
++        case eColor_IMEConvertedTextForeground:
++        case eColor_IMERawInputUnderline:
++        case eColor_IMEConvertedTextUnderline:
++        case eColor_IMESelectedRawTextUnderline:
++        case eColor_IMESelectedConvertedTextUnderline:
++        case eColor_SpellCheckerUnderline:
++        case eColor_infotext:
++        case eColor_menutext:
++        case eColor_WindowForeground:
++        case eColor_WidgetForeground:
++        case eColor_WidgetSelectBackground:
++        case eColor_TextForeground:
++        case eColor_TextSelectBackground:
++        case eColor_buttontext:
++        case eColor_windowtext:
++            BLACK;
++
++        case eColor_WidgetBackground:
++        case eColor_Widget3DHighlight:
++        case eColor_Widget3DShadow:
++        case eColor_activeborder:
++        case eColor_activecaption:
++        case eColor_appworkspace:
++        case eColor_captiontext:
++        case eColor_graytext:
++        case eColor_highlight:
++        case eColor_highlighttext:
++        case eColor_buttonshadow:
++        case eColor_threedshadow:
++        case eColor_threeddarkshadow:
++        case eColor_threedlightshadow:
++        case eColor_window:
++        case eColor_windowframe:
++            GRAY;
++
++            // from the CSS3 working draft (not yet finalized)
++            // http://www.w3.org/tr/2000/wd-css3-userint-20000216.html#color
++
++        case eColor__moz_buttondefault:
++        case eColor__moz_field:
++        case eColor__moz_combobox:
++        case eColor__moz_dialog:
++        case eColor__moz_dragtargetzone:
++            GRAY;
++            
++        case eColor__moz_fieldtext:
++        case eColor__moz_comboboxtext:
++        case eColor__moz_dialogtext:
++        case eColor__moz_buttonhovertext:
++        case eColor__moz_menuhovertext:
++        case eColor__moz_menubarhovertext:
++            BLACK;
++
++        default:
++            aColor = 0;
++            rv = NS_ERROR_FAILURE;
++            break;
++    }
++#endif
++
++    return rv;
++}
++
++
++NS_IMETHODIMP
++nsLookAndFeel::GetMetric(const nsMetricID aID, PRInt32 &aMetric)
++{
++    nsresult rv = nsXPLookAndFeel::GetMetric(aID, aMetric);
++    if (NS_SUCCEEDED(rv))
++        return rv;
++
++    rv = NS_OK;
++
++    switch (aID) {
++        case eMetric_WindowTitleHeight:
++        case eMetric_WindowBorderWidth:
++        case eMetric_WindowBorderHeight:
++            aMetric = 0;
++            break;
++
++        case eMetric_Widget3DBorder:
++            aMetric = 4;
++            break;
++
++        case eMetric_TextFieldHeight:
++            aMetric = 15;
++            break;
++
++        case eMetric_TextFieldBorder:
++            aMetric = 2;
++            break;
++
++        case eMetric_TextVerticalInsidePadding:
++            aMetric = 0;
++            break;
++
++        case eMetric_TextShouldUseVerticalInsidePadding:
++            aMetric = 0;
++            break;
++
++        case eMetric_TextHorizontalInsideMinimumPadding:
++            aMetric = 15;
++            break;
++
++        case eMetric_TextShouldUseHorizontalInsideMinimumPadding:
++            aMetric = 1;
++            break;
++
++        case eMetric_ButtonHorizontalInsidePaddingNavQuirks:
++            aMetric = 10;
++            break;
++
++        case eMetric_ButtonHorizontalInsidePaddingOffsetNavQuirks:
++            aMetric = 8;
++            break;
++
++        case eMetric_CheckboxSize:
++        case eMetric_RadioboxSize:
++            aMetric = 15;
++            break;
++
++        case eMetric_ListShouldUseHorizontalInsideMinimumPadding:
++            aMetric = 15;
++            break;
++
++        case eMetric_ListHorizontalInsideMinimumPadding:
++            aMetric = 15;
++            break;
++
++        case eMetric_ListShouldUseVerticalInsidePadding:
++            aMetric = 1;
++            break;
++
++        case eMetric_ListVerticalInsidePadding:
++            aMetric = 1;
++            break;
++
++        case eMetric_CaretBlinkTime:
++            aMetric = 500;
++            break;
++
++        case eMetric_CaretWidth:
++            aMetric = 1;
++            break;
++
++        case eMetric_ShowCaretDuringSelection:
++            aMetric = 0;
++            break;
++
++        case eMetric_SelectTextfieldsOnKeyFocus:
++            // Select textfield content when focused by kbd
++            // used by nsEventStateManager::sTextfieldSelectModel
++            aMetric = 1;
++            break;
++
++        case eMetric_SubmenuDelay:
++            aMetric = 200;
++            break;
++
++        case eMetric_MenusCanOverlapOSBar:
++            // we want XUL popups to be able to overlap the task bar.
++            aMetric = 1;
++            break;
++
++        case eMetric_ScrollArrowStyle:
++            aMetric = eMetric_ScrollArrowStyleSingle;
++            break;
++
++        case eMetric_ScrollSliderStyle:
++            aMetric = eMetric_ScrollThumbStyleProportional;
++            break;
++
++        case eMetric_WindowsDefaultTheme:
++        case eMetric_TouchEnabled:
++        case eMetric_MaemoClassic:
++            aMetric = 0;
++            rv = NS_ERROR_NOT_IMPLEMENTED;
++            break;
++
++        case eMetric_SpellCheckerUnderlineStyle:
++            aMetric = NS_UNDERLINE_STYLE_WAVY;
++            break;
++
++        default:
++            aMetric = 0;
++            rv = NS_ERROR_FAILURE;
++    }
++
++    return rv;
++}
++
++NS_IMETHODIMP
++nsLookAndFeel::GetMetric(const nsMetricFloatID aID,
++                         float &aMetric)
++{
++    nsresult rv = nsXPLookAndFeel::GetMetric(aID, aMetric);
++    if (NS_SUCCEEDED(rv))
++        return rv;
++    rv = NS_OK;
++
++    switch (aID) {
++        case eMetricFloat_TextFieldVerticalInsidePadding:
++            aMetric = 0.25f;
++            break;
++
++        case eMetricFloat_TextFieldHorizontalInsidePadding:
++            aMetric = 0.95f; // large number on purpose so minimum padding is used
++            break;
++
++        case eMetricFloat_TextAreaVerticalInsidePadding:
++            aMetric = 0.40f;
++            break;
++
++        case eMetricFloat_TextAreaHorizontalInsidePadding:
++            aMetric = 0.40f; // large number on purpose so minimum padding is used
++            break;
++
++        case eMetricFloat_ListVerticalInsidePadding:
++            aMetric = 0.10f;
++            break;
++
++        case eMetricFloat_ListHorizontalInsidePadding:
++            aMetric = 0.40f;
++            break;
++
++        case eMetricFloat_ButtonVerticalInsidePadding:
++            aMetric = 0.25f;
++            break;
++
++        case eMetricFloat_ButtonHorizontalInsidePadding:
++            aMetric = 0.25f;
++            break;
++
++        case eMetricFloat_IMEUnderlineRelativeSize:
++            aMetric = 1.0f;
++            break;
++
++        case eMetricFloat_SpellCheckerUnderlineRelativeSize:
++            aMetric = 1.0f;
++            break;
++
++        default:
++            aMetric = -1.0;
++            rv = NS_ERROR_FAILURE;
++            break;
++    }
++    return rv;
++}
+diff --git a/widget/src/webos/nsLookAndFeel.h b/widget/src/webos/nsLookAndFeel.h
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsLookAndFeel.h
+@@ -0,0 +1,55 @@
++/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ * Netscape Communications Corporation.
++ * Portions created by the Initial Developer are Copyright (C) 1998
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Lars Knoll <knoll@kde.org>
++ *   John C. Griggs <johng@corel.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++#ifndef __nsLookAndFeel
++#define __nsLookAndFeel
++
++#include "nsXPLookAndFeel.h"
++
++class nsLookAndFeel: public nsXPLookAndFeel
++{
++public:
++    nsLookAndFeel();
++    virtual ~nsLookAndFeel();
++
++    nsresult NativeGetColor(const nsColorID aID, nscolor &aColor);
++    NS_IMETHOD GetMetric(const nsMetricID aID, PRInt32 & aMetric);
++    NS_IMETHOD GetMetric(const nsMetricFloatID aID, float & aMetric);
++};
++
++#endif
+diff --git a/widget/src/webos/nsScreenManager.cpp b/widget/src/webos/nsScreenManager.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsScreenManager.cpp
+@@ -0,0 +1,154 @@
++/* -*- Mode: C++; tab-width: 40; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either of the GNU General Public License Version 2 or later (the "GPL"),
++ * or the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsScreenManager.h"
++#include "nsWindow.h"
++
++#include "SDL/SDL.h"
++
++static gfxIntSize gScreenBounds;
++
++NS_IMPL_ISUPPORTS1(nsWebOSScreen, nsIScreen)
++
++nsWebOSScreen::nsWebOSScreen(void *nativeScreen)
++{
++}
++
++nsWebOSScreen::~nsWebOSScreen()
++{
++}
++
++NS_IMETHODIMP
++nsWebOSScreen::GetRect(PRInt32 *outLeft, PRInt32 *outTop, PRInt32 *outWidth, PRInt32 *outHeight)
++{
++    const SDL_VideoInfo *info = SDL_GetVideoInfo();
++
++    *outLeft = 0;
++    *outTop = 0;
++
++    *outWidth = info->current_w;
++    *outHeight = info->current_h;
++
++    return NS_OK;
++}
++
++
++NS_IMETHODIMP
++nsWebOSScreen::GetAvailRect(PRInt32 *outLeft, PRInt32 *outTop, PRInt32 *outWidth, PRInt32 *outHeight)
++{
++    return GetRect(outLeft, outTop, outWidth, outHeight);
++}
++
++
++
++NS_IMETHODIMP 
++nsWebOSScreen::GetPixelDepth(PRInt32 *aPixelDepth)
++{
++    // XXX do we need to lie here about 16bpp?  Or
++    // should we actually check and return the right thing?
++    *aPixelDepth = 24;
++    return NS_OK;
++}
++
++
++NS_IMETHODIMP 
++nsWebOSScreen::GetColorDepth(PRInt32 *aColorDepth)
++{
++    return GetPixelDepth(aColorDepth);
++}
++
++NS_IMPL_ISUPPORTS1(nsScreenManager, nsIScreenManager)
++
++nsScreenManager::nsScreenManager()
++{
++    mOneScreen = new nsWebOSScreen(nsnull);
++}
++
++nsScreenManager::~nsScreenManager()
++{
++}
++
++gfxIntSize
++nsScreenManager::GetBounds()
++{
++    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
++        printf("SDL Init\n");
++        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
++        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
++        SDL_SetVideoMode(0, 0, 0, SDL_OPENGL);
++        SDL_EnableUNICODE(1);
++
++        const SDL_VideoInfo *info = SDL_GetVideoInfo();
++        gScreenBounds.width = info->current_w;
++        gScreenBounds.height = info->current_h;
++    }
++
++    return gScreenBounds;
++}
++
++NS_IMETHODIMP
++nsScreenManager::GetPrimaryScreen(nsIScreen **outScreen)
++{
++    NS_IF_ADDREF(*outScreen = mOneScreen.get());
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsScreenManager::ScreenForRect(PRInt32 inLeft,
++                               PRInt32 inTop,
++                               PRInt32 inWidth,
++                               PRInt32 inHeight,
++                               nsIScreen **outScreen)
++{
++    return GetPrimaryScreen(outScreen);
++}
++
++NS_IMETHODIMP
++nsScreenManager::ScreenForNativeWidget(void *aWidget, nsIScreen **outScreen)
++{
++    return GetPrimaryScreen(outScreen);
++}
++
++NS_IMETHODIMP
++nsScreenManager::GetNumberOfScreens(PRUint32 *aNumberOfScreens)
++{
++    *aNumberOfScreens = 1;
++    return NS_OK;
++}
++
+diff --git a/widget/src/webos/nsScreenManager.h b/widget/src/webos/nsScreenManager.h
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsScreenManager.h
+@@ -0,0 +1,76 @@
++/* -*- Mode: C++; tab-width: 40; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either of the GNU General Public License Version 2 or later (the "GPL"),
++ * or the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef nsScreenManagerWebOS_h___
++#define nsScreenManagerWebOS_h___
++
++#include "nsCOMPtr.h"
++
++#include "nsIScreenManager.h"
++#include "nsIScreen.h"
++
++#include "gfxContext.h"
++
++class nsWebOSScreen :
++    public nsIScreen
++{
++public:
++    nsWebOSScreen(void *platformScreen);
++    ~nsWebOSScreen();
++
++    NS_DECL_ISUPPORTS
++    NS_DECL_NSISCREEN
++};
++
++class nsScreenManager :
++    public nsIScreenManager
++{
++public:
++    nsScreenManager();
++    ~nsScreenManager();
++
++    NS_DECL_ISUPPORTS
++    NS_DECL_NSISCREENMANAGER
++
++    static gfxIntSize GetBounds();
++protected:
++    nsCOMPtr<nsIScreen> mOneScreen;
++};
++
++#endif /* nsScreenManagerWebOS_h___ */
+diff --git a/widget/src/webos/nsToolkit.cpp b/widget/src/webos/nsToolkit.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsToolkit.cpp
+@@ -0,0 +1,96 @@
++/* -*- Mode: C++; tab-width: 40; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsToolkit.h"
++#include "nsGUIEvent.h"
++#include "nsWidgetAtoms.h"
++
++NS_IMPL_ISUPPORTS1(nsToolkit, nsIToolkit)
++
++// why do we have this?
++static PRUintn gToolkitTLSIndex = 0;
++
++nsToolkit::nsToolkit()
++{
++}
++
++nsToolkit::~nsToolkit()
++{
++    PR_SetThreadPrivate(gToolkitTLSIndex, nsnull);
++}
++
++NS_IMETHODIMP
++nsToolkit::Init(PRThread *aThread)
++{
++    nsWidgetAtoms::RegisterAtoms();
++    return NS_OK;
++}
++
++NS_METHOD
++NS_GetCurrentToolkit(nsIToolkit* *aResult)
++{
++    nsCOMPtr<nsIToolkit> toolkit = nsnull;
++    nsresult rv = NS_OK;
++    PRStatus status;
++
++    if (gToolkitTLSIndex == 0) {
++        status = PR_NewThreadPrivateIndex(&gToolkitTLSIndex, NULL);
++        if (PR_FAILURE == status)
++            rv = NS_ERROR_FAILURE;
++    }
++
++    if (NS_FAILED(rv))
++        return rv;
++
++    toolkit = (nsIToolkit*) PR_GetThreadPrivate(gToolkitTLSIndex);
++    if (!toolkit) {
++        toolkit = new nsToolkit();
++
++        if (toolkit) {
++            toolkit->Init(PR_GetCurrentThread());
++
++            PR_SetThreadPrivate(gToolkitTLSIndex, (void*)toolkit.get());
++        } else {
++            rv = NS_ERROR_OUT_OF_MEMORY;
++        }
++    }
++
++    NS_IF_ADDREF(*aResult = toolkit);
++
++    return rv;
++}
+diff --git a/widget/src/webos/nsToolkit.h b/widget/src/webos/nsToolkit.h
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsToolkit.h
+@@ -0,0 +1,57 @@
++/* -*- Mode: c++; tab-width: 40; indent-tabs-mode: nil; c-basic-offset: 4; -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef nsToolkit_h__
++#define nsToolkit_h__
++
++#include <nsIToolkit.h>
++
++class nsToolkit :
++    public nsIToolkit
++{
++public:
++    NS_DECL_ISUPPORTS
++
++    // nsIToolkit
++    NS_IMETHOD		Init(PRThread *aThread);
++
++    nsToolkit();
++    virtual ~nsToolkit();
++};
++
++#endif /* nsToolkit_h__ */
+diff --git a/widget/src/webos/nsWidgetFactory.cpp b/widget/src/webos/nsWidgetFactory.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsWidgetFactory.cpp
+@@ -0,0 +1,201 @@
++/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Corp
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsIGenericFactory.h"
++#include "nsIModule.h"
++
++#include "nsCOMPtr.h"
++#include "nsWidgetsCID.h"
++#include "nsAppShell.h"
++#include "nsToolkit.h"
++
++#include "nsWindow.h"
++//#include "nsHTMLFormatConverter.h"
++//#include "nsTransferable.h"
++#include "nsLookAndFeel.h"
++#include "nsAppShellSingleton.h"
++#include "nsScreenManager.h"
++
++// #include "nsIComponentRegistrar.h"
++// #include "nsComponentManagerUtils.h"
++// #include "nsAutoPtr.h"
++// 
++
++
++//#include "nsFilePicker.h"
++//#include "nsClipboard.h"
++//#include "nsClipboardHelper.h"
++//#include "nsAccelerometer.h"
++//#include "nsIdleService.h"
++//#include "nsDragService.h"
++//#include "nsSound.h"
++//#include "nsBidiKeyboard.h"
++//#include "nsNativeTheme.h"
++// #include "nsScrollbar.h"
++// 
++// #include "nsGUIEvent.h"
++// #include "nsQtEventDispatcher.h"
++// #include "nsIRenderingContext.h"
++// #include "nsIServiceManager.h"
++// #include "nsGfxCIID.h"
++// #include "nsIPrefBranch.h"
++// #include "nsIPrefService.h"
++// 
++
++NS_GENERIC_FACTORY_CONSTRUCTOR(nsToolkit)
++
++NS_GENERIC_FACTORY_CONSTRUCTOR(nsWindow)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsChildWindow)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsPopupWindow)
++
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsHTMLFormatConverter)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsTransferable)
++NS_GENERIC_FACTORY_CONSTRUCTOR(nsLookAndFeel)
++NS_GENERIC_FACTORY_CONSTRUCTOR(nsScreenManager)
++
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboard)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboardHelper)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsDragService)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsBidiKeyboard)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsAccelerometer)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsIdleService)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsSound)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeTheme)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeScrollbar)
++//NS_GENERIC_FACTORY_CONSTRUCTOR(nsFilePicker)
++
++
++static const nsModuleComponentInfo components[] =
++{
++    { "WebOS Toolkit",
++      NS_TOOLKIT_CID,
++      "@mozilla.org/widget/toolkit/webos;1",
++      nsToolkitConstructor },
++    { "WebOS AppShell",
++      NS_APPSHELL_CID,
++      "@mozilla.org/widget/appshell/webos;1",
++      nsAppShellConstructor },
++    { "WebOS nsWindow",
++      NS_WINDOW_CID,
++      "@mozilla.org/widgets/window/webos;1",
++      nsWindowConstructor },
++    { "WebOS Child nsWindow",
++      NS_CHILD_CID,
++      "@mozilla.org/widgets/child_window/webos;1",
++      nsWindowConstructor }, /* Note: same as Window! */
++    { "WebOS Look And Feel",
++      NS_LOOKANDFEEL_CID,
++      "@mozilla.org/widget/lookandfeel/webos;1",
++      nsLookAndFeelConstructor },
++#if 0
++    { "WebOS Popup nsWindow",
++      NS_POPUP_CID,
++      "@mozilla.org/widgets/popup_window/webos;1",
++      nsPopupWindowConstructor },
++#endif
++    { "WebOS Screen Manager",
++      NS_SCREENMANAGER_CID,
++      "@mozilla.org/gfx/screenmanager;1",
++      nsScreenManagerConstructor },
++#if 0
++    { "WebOS Idle Service",
++      NS_IDLE_SERVICE_CID,
++      "@mozilla.org/widget/idleservice;1",
++      nsIdleServiceConstructor },
++    { "Accelerometer",
++      NS_ACCELEROMETER_CID,
++      NS_ACCELEROMETER_CONTRACTID,
++      nsAccelerometerConstructor },
++    { "Transferrable",
++      NS_TRANSFERABLE_CID,
++      "@mozilla.org/widget/transferable;1",
++      nsTransferableConstructor },
++    { "WebOS Clipboard",
++      NS_CLIPBOARD_CID,
++      "@mozilla.org/widget/clipboard;1",
++      nsClipboardConstructor },
++    { "Clipboard Helper",
++      NS_CLIPBOARDHELPER_CID,
++      "@mozilla.org/widget/clipboardhelper;1",
++      nsClipboardHelperConstructor },
++    { "WebOS Drag Service",
++      NS_DRAGSERVICE_CID,
++      "@mozilla.org/widget/dragservice;1",
++      nsDragServiceConstructor },
++    { "WebOS Bidi Keyboard",
++      NS_BIDIKEYBOARD_CID,
++      "@mozilla.org/widget/bidikeyboard;1",
++      nsBidiKeyboardConstructor },
++    { "WebOS Sound",
++      NS_SOUND_CID,
++      "@mozilla.org/sound;1",
++      nsSoundConstructor },
++    { "Native Theme Renderer",
++      NS_THEMERENDERER_CID,
++      "@mozilla.org/chrome/chrome-native-theme;1",
++      nsNativeThemeConstructor },
++    { "WebOS File Picker",
++      NS_FILEPICKER_CID,
++      "@mozilla.org/filepicker;1",
++      nsFilePickerConstructor }
++    { "HTML Format Converter",
++      NS_HTMLFORMATCONVERTER_CID,
++      "@mozilla.org/widget/htmlformatconverter/webos;1",
++      nsHTMLFormatConverterConstructor },
++#endif
++
++};
++
++static void
++nsWidgetWebOSModuleDtor(nsIModule *aSelf)
++{
++//    nsSound::Shutdown();
++    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
++        printf("SDL Quit\n");
++        SDL_Quit();
++    }
++
++    nsAppShellShutdown(aSelf);
++}
++
++NS_IMPL_NSGETMODULE_WITH_CTOR_DTOR(nsWidgetWebOSModule,
++                                   components,
++                                   nsAppShellInit,
++                                   nsWidgetWebOSModuleDtor)
++
+diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsWindow.cpp
+@@ -0,0 +1,1152 @@
++/* -*- Mode: c++; c-basic-offset: 4; tab-width: 20; indent-tabs-mode: nil; -*-
++ * ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Mozilla Android code.
++ *
++ * The Initial Developer of the Original Code is Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsWindow.h"
++#include "nsScreenManager.h"
++#include "nsAppShell.h"
++
++#include "nsIDeviceContext.h"
++#include "nsIRenderingContext.h"
++
++#include "nsWidgetsCID.h"
++#include "nsGfxCIID.h"
++
++#include "gfxImageSurface.h"
++#include "gfxContext.h"
++
++#include "nsTArray.h"
++
++#include "SDL/SDL.h"
++
++/* OpenGL */
++#include <GLES2/gl2.h>
++#include <GLES2/gl2ext.h>
++
++#define ALOG(args...) printf(args); printf("\n")
++
++#ifndef GL_BGRA_EXT
++#define GL_BGRA_EXT 0x80E1
++#endif
++
++using namespace mozilla;
++
++NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
++
++PRUint32 gLastInputEventTime = 0;
++
++// All the toplevel windows that have been created; these are in
++// stacking order, so the window at gTopLevelWindows[0] is the topmost
++// one.
++static nsTArray<nsWindow*> gTopLevelWindows;
++static nsWindow* gFocusedWindow = nsnull;
++
++static nsWindow*
++TopWindow() {
++    if (gTopLevelWindows.Length() > 0)
++        return gTopLevelWindows[0];
++    return nsnull;
++}
++
++void
++nsWindow::LogWindow(nsWindow *win, int index, int indent)
++{
++    char spaces[] = "                    ";
++    spaces[indent < 20 ? indent : 20] = 0;
++    ALOG("%s [% 2d] 0x%08x [parent 0x%08x] [% 3d,% 3d % 3dx% 3d] vis %d type %d",
++         spaces, index, (intptr_t)win, (intptr_t)win->mParent,
++         win->mBounds.x, win->mBounds.y,
++         win->mBounds.width, win->mBounds.height,
++         win->mIsVisible, win->mWindowType);
++}
++
++void
++nsWindow::DumpWindows()
++{
++    DumpWindows(gTopLevelWindows);
++}
++
++void
++nsWindow::DumpWindows(const nsTArray<nsWindow*>& wins, int indent)
++{
++    for (int i = 0; i < wins.Length(); ++i) {
++        nsWindow *w = wins[i];
++        LogWindow(w, i, indent);
++        DumpWindows(w->mChildren, indent+1);
++    }
++}
++
++nsWindow::nsWindow()
++{
++#ifdef PR_LOGGING
++    if (!gWindowLog)
++        gWindowLog = PR_NewLogModule("Window");
++#endif
++
++    mIsVisible = PR_FALSE;
++    mParent = nsnull;
++}
++
++nsWindow::~nsWindow()
++{
++    ALOG("nsWindow %p destructor", (void*)this);
++}
++
++PRBool
++nsWindow::IsTopLevel()
++{
++    return mWindowType == eWindowType_toplevel ||
++        mWindowType == eWindowType_dialog ||
++        mWindowType == eWindowType_invisible;
++}
++
++NS_IMETHODIMP
++nsWindow::Create(nsIWidget *aParent,
++                 nsNativeWidget aNativeParent,
++                 const nsIntRect &aRect,
++                 EVENT_CALLBACK aHandleEventFunction,
++                 nsIDeviceContext *aContext,
++                 nsIAppShell *aAppShell,
++                 nsIToolkit *aToolkit,
++                 nsWidgetInitData *aInitData)
++{
++    ALOG("nsWindow[%p]::Create %p [%d %d %d %d]", (void*)this, (void*)aParent, aRect.x, aRect.y, aRect.width, aRect.height);
++    nsWindow *parent = (nsWindow*) aParent;
++
++    if (aNativeParent) {
++        if (parent) {
++            ALOG("Ignoring native parent on Android window [%p], since parent was specified (%p %p)", (void*)this, (void*)aNativeParent, (void*)aParent);
++        } else {
++            parent = (nsWindow*) aNativeParent;
++        }
++    }
++
++    mBounds = aRect;
++
++    // for toplevel windows, bounds are fixed to full screen size
++    if (parent == nsnull) {
++        gfxIntSize bounds = nsScreenManager::GetBounds();
++
++        mBounds.x = 0;
++        mBounds.y = 0;
++        mBounds.width = bounds.width;
++        mBounds.height = bounds.height;
++    }
++
++    BaseCreate(nsnull, mBounds, aHandleEventFunction, aContext,
++               aAppShell, aToolkit, aInitData);
++
++    NS_ASSERTION(IsTopLevel() || parent, "non top level window doesn't have a parent!");
++
++    if (IsTopLevel()) {
++        gTopLevelWindows.AppendElement(this);
++    }
++
++    if (parent) {
++        parent->mChildren.AppendElement(this);
++        mParent = parent;
++    }
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::Destroy(void)
++{
++    for (PRUint32 i = 0; i < mChildren.Length(); ++i) {
++        // why do we still have children?
++        ALOG("### Warning: Destroying window %p and reparenting child %p to null!", (void*)this, (void*)mChildren[i]);
++        mChildren[i]->SetParent(nsnull);
++    }
++
++    if (IsTopLevel())
++        gTopLevelWindows.RemoveElement(this);
++
++    if (mParent)
++        mParent->mChildren.RemoveElement(this);
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::ConfigureChildren(const nsTArray<nsIWidget::Configuration>& config)
++{
++    for (PRUint32 i = 0; i < config.Length(); ++i) {
++        nsWindow *childWin = (nsWindow*) config[i].mChild;
++        childWin->Resize(config[i].mBounds.x,
++                         config[i].mBounds.y,
++                         config[i].mBounds.width,
++                         config[i].mBounds.height,
++                         PR_FALSE);
++    }
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::SetParent(nsIWidget *aNewParent)
++{
++    if ((nsIWidget*)mParent == aNewParent)
++        return NS_OK;
++
++    // If we had a parent before, remove ourselves from its list of
++    // children.  If we didn't have a parent, then remove ourselves
++    // from the list of toplevel windows if we're about to get a
++    // parent.
++    if (mParent) 
++        mParent->mChildren.RemoveElement(this);
++
++    mParent = (nsWindow*)aNewParent;
++
++    if (mParent)
++        mParent->mChildren.AppendElement(this);
++
++    // if we are now in the toplevel window's hierarchy, schedule a redraw
++    if (FindTopLevel() == TopWindow()) {
++        nsAppShell::ScheduleRedraw();
++    }
++
++    return NS_OK;
++}
++
++nsIWidget*
++nsWindow::GetParent()
++{
++    return mParent;
++}
++
++NS_IMETHODIMP
++nsWindow::Show(PRBool aState)
++{
++    ALOG("nsWindow[%p]::Show %d", (void*)this, aState);
++
++    if (mWindowType == eWindowType_invisible) {
++        ALOG("trying to show invisible window! ignoring..");
++        return NS_ERROR_FAILURE;
++    }
++
++    if ((aState && !mIsVisible) ||
++        (!aState && mIsVisible))
++    {
++        mIsVisible = aState;
++
++        if (IsTopLevel()) {
++            // XXX should we bring this to the front when it's shown,
++            // if it's a toplevel widget?
++
++            // XXX we should synthesize a NS_MOUSE_EXIT (for old top
++            // window)/NS_MOUSE_ENTER (for new top window) since we need
++            // to pretend that the top window always has focus.  Not sure
++            // if Show() is the right place to do this, though.
++
++            if (mIsVisible) {
++                // It just became visible, so send a resize update if necessary
++                // and bring it to the front.
++                gfxIntSize bounds = nsScreenManager::GetBounds();
++
++                Resize(0, 0, bounds.width, bounds.height, PR_FALSE);
++                BringToFront();
++            }
++        } else if (FindTopLevel() == TopWindow()) {
++            nsAppShell::ScheduleRedraw();
++        }
++    }
++
++#ifdef ANDROID_DEBUG_WIDGET
++    DumpWindows();
++#endif
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::SetModal(PRBool aState)
++{
++    ALOG("nsWindow[%p]::SetModal %d ignored", (void*)this, aState);
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::IsVisible(PRBool& aState)
++{
++    aState = mIsVisible;
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::ConstrainPosition(PRBool aAllowSlop,
++                            PRInt32 *aX,
++                            PRInt32 *aY)
++{
++    ALOG("nsWindow[%p]::ConstrainPosition %d [%d %d]", (void*)this, aAllowSlop, *aX, *aY);
++
++    // constrain toplevel windows; children we don't care about
++    if (IsTopLevel()) {
++        *aX = 0;
++        *aY = 0;
++    }
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::Move(PRInt32 aX,
++               PRInt32 aY)
++{
++    if (IsTopLevel())
++        return NS_OK;
++
++    return Resize(aX,
++                  aY,
++                  mBounds.width,
++                  mBounds.height,
++                  PR_TRUE);
++}
++
++NS_IMETHODIMP
++nsWindow::Resize(PRInt32 aWidth,
++                 PRInt32 aHeight,
++                 PRBool aRepaint)
++{
++    return Resize(mBounds.x,
++                  mBounds.y,
++                  aWidth,
++                  aHeight,
++                  aRepaint);
++}
++
++NS_IMETHODIMP
++nsWindow::Resize(PRInt32 aX,
++                 PRInt32 aY,
++                 PRInt32 aWidth,
++                 PRInt32 aHeight,
++                 PRBool aRepaint)
++{
++    ALOG("nsWindow[%p]::Resize [%d %d %d %d] (repaint %d)", (void*)this, aX, aY, aWidth, aHeight, aRepaint);
++
++    PRBool needSizeDispatch = aWidth != mBounds.width || aHeight != mBounds.height;
++
++    if (IsTopLevel()) {
++        ALOG("... ignoring Resize sizes on toplevel window");
++        gfxIntSize bounds = nsScreenManager::GetBounds();
++        aX = 0;
++        aY = 0;
++        aWidth = bounds.width;
++        aHeight = bounds.height;
++    }
++
++    mBounds.x = aX;
++    mBounds.y = aY;
++    mBounds.width = aWidth;
++    mBounds.height = aHeight;
++
++    if (needSizeDispatch)
++        OnSizeChanged(gfxIntSize(aWidth, aHeight));
++
++    // Should we skip honoring aRepaint here?
++    if (aRepaint && FindTopLevel() == TopWindow()) {
++        nsAppShell::ScheduleRedraw();
++    }
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::SetZIndex(PRInt32 aZIndex)
++{
++    ALOG("nsWindow[%p]::SetZIndex %d ignored", (void*)this, aZIndex);
++
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::PlaceBehind(nsTopLevelWidgetZPlacement aPlacement,
++                      nsIWidget *aWidget,
++                      PRBool aActivate)
++{
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::SetSizeMode(PRInt32 aMode)
++{
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::Enable(PRBool aState)
++{
++    ALOG("nsWindow[%p]::Enable %d ignored", (void*)this, aState);
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::IsEnabled(PRBool *aState)
++{
++    *aState = PR_TRUE;
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::Invalidate(const nsIntRect &aRect,
++                     PRBool aIsSynchronous)
++{
++    nsAppShell::ScheduleRedraw();
++    return NS_OK;
++}
++
++NS_IMETHODIMP
++nsWindow::Update()
++{
++    return NS_OK;
++}
++
++void
++nsWindow::Scroll(const nsIntPoint&,
++                 const nsTArray<nsIntRect>&,
++                 const nsTArray<nsIWidget::Configuration>&)
++{
++    ALOG("nsWindow[%p]::Scroll ignored!", (void*)this);
++}
++
++nsWindow*
++nsWindow::FindTopLevel()
++{
++    nsWindow *toplevel = this;
++    while (toplevel) {
++        if (toplevel->IsTopLevel())
++            return toplevel;
++
++        toplevel = toplevel->mParent;
++    }
++
++    ALOG("nsWindow::FindTopLevel(): couldn't find a toplevel or dialog window in this [%p] widget's hierarchy!", (void*)this);
++    return this;
++}
++
++NS_IMETHODIMP
++nsWindow::SetFocus(PRBool aRaise)
++{
++    if (!aRaise)
++        ALOG("nsWindow::SetFocus: can't set focus without raising, ignoring aRaise = false!");
++
++    gFocusedWindow = this;
++    FindTopLevel()->BringToFront();
++
++    return NS_OK;
++}
++
++void
++nsWindow::BringToFront()
++{
++    if (FindTopLevel() == TopWindow())
++        return;
++
++    if (!IsTopLevel()) {
++        FindTopLevel()->BringToFront();
++        return;
++    }
++
++    ALOG("nsWindow[%p]::BringToFront", (void*)this);
++
++    nsWindow *oldTop = nsnull;
++    if (gTopLevelWindows.Length())
++        oldTop = gTopLevelWindows[0];
++
++    gTopLevelWindows.RemoveElement(this);
++    gTopLevelWindows.InsertElementAt(0, this);
++
++    if (oldTop) {
++        nsGUIEvent event(PR_TRUE, NS_DEACTIVATE, gTopLevelWindows[0]);
++        DispatchEvent(&event);
++    }
++
++    nsGUIEvent event(PR_TRUE, NS_ACTIVATE, this);
++    DispatchEvent(&event);
++
++    nsAppShell::ScheduleRedraw();
++}
++
++NS_IMETHODIMP
++nsWindow::GetScreenBounds(nsIntRect &aRect)
++{
++    nsIntPoint p = WidgetToScreenOffset();
++
++    aRect.x = p.x;
++    aRect.y = p.y;
++    aRect.width = mBounds.width;
++    aRect.height = mBounds.height;
++    
++    return NS_OK;
++}
++
++nsIntPoint
++nsWindow::WidgetToScreenOffset()
++{
++    nsIntPoint p(0, 0);
++    nsWindow *w = this;
++
++    while (w && !w->IsTopLevel()) {
++        p.x += w->mBounds.x;
++        p.y += w->mBounds.y;
++
++        w = w->mParent;
++    }
++
++    return p;
++}
++
++NS_IMETHODIMP
++nsWindow::DispatchEvent(nsGUIEvent *aEvent,
++                        nsEventStatus &aStatus)
++{
++    aStatus = DispatchEvent(aEvent);
++    return NS_OK;
++}
++
++nsEventStatus
++nsWindow::DispatchEvent(nsGUIEvent *aEvent)
++{
++    if (mEventCallback)
++        return (*mEventCallback)(aEvent);
++    return nsEventStatus_eIgnore;
++}
++
++NS_IMETHODIMP
++nsWindow::SetWindowClass(const nsAString& xulWinType)
++{
++    return NS_OK;
++}
++
++gfxASurface*
++nsWindow::GetThebesSurface()
++{
++    /* This is really a dummy surface; this is only used when doing reflow, because
++     * we need a RenderingContext to measure text against.
++     */
++
++    // XXX this really wants to return already_AddRefed, but this only really gets used
++    // on direct assignment to a gfxASurface
++    return new gfxImageSurface(gfxIntSize(5,5), gfxImageSurface::ImageFormatRGB24);
++}
++
++void
++nsWindow::OnGlobalSDLEvent(SDL_Event *sdlevt)
++{
++    switch (sdlevt->type) {
++    case SDL_KEYDOWN:
++    case SDL_KEYUP:
++        if (gFocusedWindow) {
++            gFocusedWindow->OnSDLEvent(sdlevt);
++            break;
++        }
++    case SDL_USEREVENT:
++    case SDL_MOUSEBUTTONDOWN:
++    case SDL_MOUSEBUTTONUP:
++    case SDL_MOUSEMOTION:
++        if (gTopLevelWindows.Length() > 0)
++            gTopLevelWindows[0]->OnSDLEvent(sdlevt);
++        break;
++    }
++}
++
++void
++nsWindow::OnSDLEvent(SDL_Event *sdlevt) {
++    switch (sdlevt->type) {
++    case SDL_USEREVENT:
++        switch (sdlevt->user.code) {
++        case WEBOS_EVENT_REDRAW:
++            Redraw();
++            break;
++        }
++        break;
++    case SDL_MOUSEBUTTONDOWN:
++    case SDL_MOUSEBUTTONUP:
++    case SDL_MOUSEMOTION: {
++        nsIntPoint pt(sdlevt->button.x, sdlevt->button.y);
++        nsWindow* win = FindWindowForPoint(pt);
++        win->OnMouseEvent(sdlevt, pt);
++        break;
++    }
++    case SDL_KEYDOWN:
++    case SDL_KEYUP:
++        OnKeyEvent(sdlevt->key);
++        break;
++    }
++}
++
++void
++nsWindow::InitKeyEvent(nsKeyEvent& event, SDL_keysym &keysym)
++{
++    event.isShift = keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT);
++    event.isControl = keysym.mod & (KMOD_LCTRL | KMOD_RCTRL);
++    event.isAlt = keysym.mod & (KMOD_LALT | KMOD_RALT);
++    event.isMeta = keysym.mod & (KMOD_LMETA | KMOD_RMETA);
++    event.time = PR_Now() / 1000;
++
++    switch (keysym.sym) {
++    case SDLK_BACKSPACE:
++        event.keyCode = NS_VK_BACK;
++        return;
++    case SDLK_TAB:
++        event.keyCode = NS_VK_TAB;
++        return;
++    case SDLK_CLEAR:
++        return;
++    case SDLK_RETURN:
++        event.keyCode = NS_VK_RETURN;
++        return;
++    case SDLK_PAUSE:
++        return;
++    case SDLK_ESCAPE:
++        event.keyCode = NS_VK_ESCAPE;
++        return;
++    case SDLK_SPACE:
++        event.keyCode = NS_VK_SPACE;
++        break;
++    case SDLK_EXCLAIM:
++        break;
++    case SDLK_QUOTEDBL:
++        break;
++    case SDLK_HASH:
++        break;
++    case SDLK_DOLLAR:
++        break;
++    case SDLK_AMPERSAND:
++        break;
++    case SDLK_QUOTE:
++        event.keyCode = NS_VK_QUOTE;
++        break;
++    case SDLK_LEFTPAREN:
++        event.keyCode = NS_VK_OPEN_BRACKET;
++        break;
++    case SDLK_RIGHTPAREN:
++        event.keyCode = NS_VK_CLOSE_BRACKET;
++        break;
++    case SDLK_ASTERISK:
++        event.keyCode = NS_VK_MULTIPLY;
++        break;
++    case SDLK_PLUS:
++        event.keyCode = NS_VK_ADD;
++        break;
++    case SDLK_COMMA:
++        event.keyCode = NS_VK_COMMA;
++        break;
++    case SDLK_MINUS:
++        event.keyCode = NS_VK_SUBTRACT;
++        break;
++    case SDLK_PERIOD:
++        event.keyCode = NS_VK_PERIOD;
++        break;
++    case SDLK_SLASH:
++        event.keyCode = NS_VK_SLASH;
++        break;
++    case SDLK_0:
++    case SDLK_1:
++    case SDLK_2:
++    case SDLK_3:
++    case SDLK_4:
++    case SDLK_5:
++    case SDLK_6:
++    case SDLK_7:
++    case SDLK_8:
++    case SDLK_9:
++        event.keyCode = keysym.sym - SDLK_0 + NS_VK_0;
++        break;
++    case SDLK_COLON:
++        break;
++    case SDLK_SEMICOLON:
++        event.keyCode = NS_VK_SEMICOLON;
++        break;
++    case SDLK_LESS:
++        break;
++    case SDLK_EQUALS:
++        event.keyCode = NS_VK_EQUALS;
++        break;
++    case SDLK_GREATER:
++        break;
++    case SDLK_QUESTION:
++        break;
++    case SDLK_AT:
++        break;
++    case SDLK_LEFTBRACKET:
++        break;
++    case SDLK_BACKSLASH:
++        event.keyCode = NS_VK_BACK_SLASH;
++        break;
++    case SDLK_RIGHTBRACKET:
++        break;
++    case SDLK_CARET:
++        break;
++    case SDLK_UNDERSCORE:
++        break;
++    case SDLK_BACKQUOTE:
++        break;
++    case SDLK_a:
++    case SDLK_b:
++    case SDLK_c:
++    case SDLK_d:
++    case SDLK_e:
++    case SDLK_f:
++    case SDLK_g:
++    case SDLK_h:
++    case SDLK_i:
++    case SDLK_j:
++    case SDLK_k:
++    case SDLK_l:
++    case SDLK_m:
++    case SDLK_n:
++    case SDLK_o:
++    case SDLK_p:
++    case SDLK_q:
++    case SDLK_r:
++    case SDLK_s:
++    case SDLK_t:
++    case SDLK_u:
++    case SDLK_v:
++    case SDLK_w:
++    case SDLK_x:
++    case SDLK_y:
++    case SDLK_z:
++        event.keyCode = keysym.sym - SDLK_a + NS_VK_A;
++        break;
++    case SDLK_DELETE:
++        return;
++    case SDLK_KP0:
++    case SDLK_KP1:
++    case SDLK_KP2:
++    case SDLK_KP3:
++    case SDLK_KP4:
++    case SDLK_KP5:
++    case SDLK_KP6:
++    case SDLK_KP7:
++    case SDLK_KP8:
++    case SDLK_KP9:
++        break;
++    default:
++        ALOG("Unknown key code!");
++        break;
++    }
++
++    event.charCode = keysym.unicode;
++}
++
++void
++nsWindow::OnKeyEvent(SDL_KeyboardEvent &keyevt)
++{
++    PRUint32 msg;
++    switch (keyevt.type) {
++    case SDL_KEYDOWN:
++        msg = NS_KEY_DOWN;
++        break;
++    case SDL_KEYUP:
++        msg = NS_KEY_UP;
++        break;
++    default:
++        ALOG("Unknown key action event!");
++        return;
++    }
++
++    nsKeyEvent event(PR_TRUE, msg, this);
++    InitKeyEvent(event, keyevt.keysym);
++    if (event.charCode)
++        event.keyCode = 0;
++    DispatchEvent(&event);
++
++    if (msg == NS_KEY_DOWN) {
++        nsKeyEvent pressEvent(PR_TRUE, NS_KEY_PRESS, this);
++        InitKeyEvent(pressEvent, keyevt.keysym);
++#ifdef ANDROID_DEBUG_WIDGET
++        ALOG("Dispatching key event with keyCode %d charCode %d shift %d alt %d sym/ctrl %d metamask %d", event.keyCode, event.charCode, event.isShift, event.isAlt, event.isControl, ae->MetaState());
++#endif
++        DispatchEvent(&pressEvent);
++    }
++}
++
++void
++nsWindow::OnMouseEvent(SDL_Event *sdlevt, nsIntPoint pt)
++{
++    nsIntPoint offset = WidgetToScreenOffset();
++    pt.x -= offset.x;
++    pt.y -= offset.y;
++
++    ALOG("Mouse event dispatched to %p at %d %d", (void*)this, pt.x, pt.y);
++
++    if (pt.x < 0 || pt.x >= mBounds.width ||
++        pt.y < 0 || pt.y >= mBounds.height)
++    {
++        ALOG("Motion event dispatched to %p but final coordinates %d %d aren't within bounds", (void*)this, pt.x, pt.y);
++        return;
++    }
++
++    PRUint32 msg;
++    switch (sdlevt->type) {
++    case SDL_MOUSEBUTTONDOWN:
++        msg = NS_MOUSE_BUTTON_DOWN;
++        break;
++    case SDL_MOUSEBUTTONUP:
++        msg = NS_MOUSE_BUTTON_UP;
++        break;
++    case SDL_MOUSEMOTION:
++        msg = NS_MOUSE_MOVE;
++        break;
++    }
++
++    nsMouseEvent event(PR_TRUE,
++                       msg, this,
++                       nsMouseEvent::eReal, nsMouseEvent::eNormal);
++    InitEvent(event, &pt);
++
++    if (msg != NS_MOUSE_MOVE)
++    {
++        // XXX can we synthesize different buttons?
++        event.button = nsMouseEvent::eLeftButton;
++        event.clickCount = 1;
++    }
++
++    // XXX add the double-click handling logic here
++
++    DispatchEvent(&event);
++}
++
++PRBool
++nsWindow::DrawTo(gfxASurface *targetSurface)
++{
++    if (!mIsVisible)
++        return PR_FALSE;
++
++    nsRefPtr<gfxContext> ctx = new gfxContext(targetSurface);
++
++    nsIntRect boundsRect(0, 0, mBounds.width, mBounds.height);
++
++    nsPaintEvent event(PR_TRUE, NS_PAINT, this);
++    event.region = boundsRect;
++    {
++        AutoLayerManagerSetup setupLayerManager(this, ctx);
++        nsEventStatus status = DispatchEvent(&event);
++    }
++
++    // XXX uhh.. we can't just ignore this because we no longer have
++    // what we needed before, but let's keep drawing the children anyway?
++#if 0
++    if (status == nsEventStatus_eIgnore)
++        return PR_FALSE;
++#endif
++
++    // XXX if we got an ignore for the parent, do we still want to draw the children?
++    // We don't really have a good way not to...
++
++    gfxPoint offset = targetSurface->GetDeviceOffset();
++
++    for (PRUint32 i = 0; i < mChildren.Length(); ++i) {
++        targetSurface->SetDeviceOffset(offset + gfxPoint(mChildren[i]->mBounds.x,
++                                                         mChildren[i]->mBounds.y));
++        if (!mChildren[i]->DrawTo(targetSurface)) {
++            ALOG("nsWindow[%p]::DrawTo child %d[%p] returned FALSE!", (void*) this, i, (void*)mChildren[i]);
++        }
++    }
++
++    targetSurface->SetDeviceOffset(offset);
++
++    return PR_TRUE;
++}
++
++void
++nsWindow::Redraw()
++{
++    static bool firstDraw = true;
++
++    if (!IsTopLevel()) {
++        ALOG("##### redraw for window %p, which is not a toplevel window -- sending to toplevel!", (void*) this);
++        DumpWindows();
++        return;
++    }
++
++    if (!mIsVisible) {
++        ALOG("##### redraw for window %p, which is not visible -- ignoring!", (void*) this);
++        DumpWindows();
++        return;
++    }
++
++    nsRefPtr<gfxImageSurface> targetSurface;
++
++    targetSurface =
++        new gfxImageSurface(gfxIntSize(mBounds.width, mBounds.height), gfxASurface::ImageFormatARGB32);
++
++    if (!DrawTo(targetSurface)) {
++        return;
++    }
++
++    static bool hasBGRA = false;
++
++    if (firstDraw) {
++        const char *ext = (const char *) glGetString(GL_EXTENSIONS);
++        ALOG("GL extensions: %s", ext);
++        if (strstr(ext, "GL_EXT_bgra") ||
++            strstr(ext, "GL_IMG_texture_format_BGRA8888") ||
++            strstr(ext, "GL_EXT_texture_format_BGRA8888"))
++            hasBGRA = true;
++
++        firstDraw = false;
++    }
++
++    static GLuint textureId = GLuint(-1);
++    static GLuint programId = GLuint(-1);
++    static GLint positionLoc, texCoordLoc, textureLoc;
++    if (textureId == GLuint(-1) || !glIsTexture(textureId)) {
++        glGenTextures(1, &textureId);
++
++        glBindTexture(GL_TEXTURE_2D, textureId);
++
++        /* Set required NPOT texture params, for baseline ES2 NPOT support */
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
++
++        const char *vsString =
++            "attribute vec3 aPosition; \n"
++            "attribute vec2 aTexCoord; \n"
++            "varying vec2 vTexCoord; \n"
++            "void main() { \n"
++            "  gl_Position = vec4(aPosition, 1.0); \n"
++            "  vTexCoord = aTexCoord; \n"
++            "}";
++
++        /* Note that while the swizzle is, afaik, "free", the texture upload
++         * can potentially be faster if the native hardware format is BGRA.  So
++         * we use BGRA if it's available.
++         */
++
++        const char *fsStringNoBGRA =
++            "precision mediump float; \n"
++            "varying vec2 vTexCoord; \n"
++            "uniform sampler2D sTexture; \n"
++            "void main() { \n"
++            "  gl_FragColor = vec4(texture2D(sTexture, vTexCoord).bgr, 1.0); \n"
++            "}";
++
++        const char *fsStringBGRA =
++            "precision mediump float; \n"
++            "varying vec2 vTexCoord; \n"
++            "uniform sampler2D sTexture; \n"
++            "void main() { \n"
++            "  gl_FragColor = vec4(texture2D(sTexture, vTexCoord).rgb, 1.0); \n"
++            "}";
++
++        GLint status;
++
++        GLuint vsh = glCreateShader(GL_VERTEX_SHADER);
++        glShaderSource(vsh, 1, &vsString, NULL);
++        glCompileShader(vsh);
++        glGetShaderiv(vsh, GL_COMPILE_STATUS, &status);
++        if (!status) {
++            ALOG("Failed to compile vertex shader");
++            return;
++        }
++
++        GLuint fsh = glCreateShader(GL_FRAGMENT_SHADER);
++        glShaderSource(fsh, 1, hasBGRA ? &fsStringBGRA : &fsStringNoBGRA, NULL);
++        glCompileShader(fsh);
++        glGetShaderiv(fsh, GL_COMPILE_STATUS, &status);
++        if (!status) {
++            ALOG("Failed to compile fragment shader");
++            return;
++        }
++
++        programId = glCreateProgram();
++        glAttachShader(programId, vsh);
++        glAttachShader(programId, fsh);
++
++        glLinkProgram(programId);
++        glGetProgramiv(programId, GL_LINK_STATUS, &status);
++        if (!status) {
++            ALOG("Failed to link program");
++            return;
++        }
++
++        positionLoc = glGetAttribLocation(programId, "aPosition");
++        texCoordLoc = glGetAttribLocation(programId, "aTexCoord");
++        textureLoc = glGetUniformLocation(programId, "sTexture");
++    }
++
++    int texDimWidth = targetSurface->Width();
++    int texDimHeight = targetSurface->Height();
++
++    glClearColor(1.0f, 0.3f, 0.3f, 1.0f);
++    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
++
++    glFrontFace(GL_CCW);
++
++    glDisable(GL_CULL_FACE);
++    glDisable(GL_DEPTH_TEST);
++
++    glBindTexture(GL_TEXTURE_2D, textureId);
++
++    glTexImage2D(GL_TEXTURE_2D,
++                 0,
++                 hasBGRA ? GL_BGRA_EXT : GL_RGBA,
++                 texDimWidth,
++                 texDimHeight,
++                 0,
++                 hasBGRA ? GL_BGRA_EXT : GL_RGBA,
++                 GL_UNSIGNED_BYTE,
++                 targetSurface->Data());
++
++    GLfloat texCoords[] = { 0.0f, 1.0f,
++                            0.0f, 0.0f,
++                            1.0f, 1.0f,
++                            1.0f, 0.0f };
++
++    GLfloat vCoords[] = { -1.0f, -1.0f, 0.0f,
++                          -1.0f,  1.0f, 0.0f,
++                           1.0f, -1.0f, 0.0f,
++                           1.0f,  1.0f, 0.0f };
++
++    glUseProgram(programId);
++
++    glVertexAttribPointer(positionLoc, 3, GL_FLOAT, GL_FALSE, 0, vCoords);
++    glVertexAttribPointer(texCoordLoc, 2, GL_FLOAT, GL_FALSE, 0, texCoords);
++
++    glEnableVertexAttribArray(positionLoc);
++    glEnableVertexAttribArray(texCoordLoc);
++
++    glUniform1i(textureLoc, 0);
++
++    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
++
++    int err = glGetError();
++    if (err)
++        ALOG("GL error: %d", err);
++
++    SDL_GL_SwapBuffers();
++}
++
++void
++nsWindow::OnSizeChanged(const gfxIntSize& aSize)
++{
++    int w = aSize.width;
++    int h = aSize.height;
++
++    ALOG("nsWindow: %p OnSizeChanged [%d %d]", (void*)this, w, h);
++
++    nsSizeEvent event(PR_TRUE, NS_SIZE, this);
++    InitEvent(event);
++
++    nsIntRect wsz(0, 0, w, h);
++    event.windowSize = &wsz;
++    event.mWinWidth = w;
++    event.mWinHeight = h;
++
++    mBounds.width = w;
++    mBounds.height = h;
++
++    DispatchEvent(&event);
++}
++
++void
++nsWindow::InitEvent(nsGUIEvent& event, nsIntPoint* aPoint)
++{
++    if (aPoint) {
++        event.refPoint.x = aPoint->x;
++        event.refPoint.y = aPoint->y;
++    } else {
++        event.refPoint.x = 0;
++        event.refPoint.y = 0;
++    }
++
++    event.time = PR_Now() / 1000;
++}
++
++void *
++nsWindow::GetNativeData(PRUint32 aDataType)
++{
++    switch (aDataType) {
++        case NS_NATIVE_WIDGET:
++            return (void *) this;
++    }
++
++    return nsnull;
++}
++
++nsresult
++nsWindow::GetCurrentOffset(PRUint32 &aOffset, PRUint32 &aLength)
++{
++    nsQueryContentEvent event(PR_TRUE, NS_QUERY_SELECTED_TEXT, this);
++    DispatchEvent(&event);
++
++    if (!event.mSucceeded)
++        return NS_ERROR_FAILURE;
++
++    aOffset = event.mReply.mOffset;
++    aLength = event.mReply.mString.Length();
++    return NS_OK;
++}
++
++nsresult
++nsWindow::DeleteRange(int aOffset, int aLen)
++{
++    nsSelectionEvent selectEvent(PR_TRUE, NS_SELECTION_SET, this);
++    selectEvent.mOffset = aOffset;
++    selectEvent.mLength = aLen;
++    DispatchEvent(&selectEvent);
++    NS_ENSURE_TRUE(selectEvent.mSucceeded, NS_ERROR_FAILURE);
++
++    nsContentCommandEvent event(PR_TRUE, NS_CONTENT_COMMAND_DELETE, this);
++    DispatchEvent(&event);
++    NS_ENSURE_TRUE(event.mSucceeded, NS_ERROR_FAILURE);
++
++    return NS_OK;
++}
++
++nsWindow *
++nsWindow::FindWindowForPoint(const nsIntPoint& pt)
++{
++    if (!mBounds.Contains(pt))
++        return nsnull;
++
++    // children mBounds are relative to their parent
++    nsIntPoint childPoint(pt.x - mBounds.x, pt.y - mBounds.y);
++
++    for (PRUint32 i = 0; i < mChildren.Length(); ++i) {
++        if (mChildren[i]->mBounds.Contains(childPoint))
++            return mChildren[i]->FindWindowForPoint(childPoint);
++    }
++
++    return this;
++}
+diff --git a/widget/src/webos/nsWindow.h b/widget/src/webos/nsWindow.h
+new file mode 100644
+--- /dev/null
++++ b/widget/src/webos/nsWindow.h
+@@ -0,0 +1,174 @@
++/* -*- Mode: c++; c-basic-offset: 4; tab-width: 20; indent-tabs-mode: nil; -*-
++ * ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Mozilla Android code.
++ *
++ * The Initial Developer of the Original Code is Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef NSWINDOW_H_
++#define NSWINDOW_H_
++
++#include "nsBaseWidget.h"
++#include "gfxPoint.h"
++
++#include "nsTArray.h"
++
++#include "SDL/SDL.h"
++
++class gfxASurface;
++
++class nsWindow :
++    public nsBaseWidget
++{
++public:
++    nsWindow();
++    virtual ~nsWindow();
++
++    NS_DECL_ISUPPORTS_INHERITED
++
++    static void OnGlobalSDLEvent(SDL_Event *sdlevt);
++
++    nsWindow* FindWindowForPoint(const nsIntPoint& pt);
++
++    void OnSDLEvent(SDL_Event *sdlevt);
++
++    void Redraw();
++
++    void InitEvent(nsGUIEvent& event, nsIntPoint* aPoint = 0);
++
++    //
++    // nsIWidget
++    //
++
++    NS_IMETHOD Create(nsIWidget *aParent,
++                      nsNativeWidget aNativeParent,
++                      const nsIntRect &aRect,
++                      EVENT_CALLBACK aHandleEventFunction,
++                      nsIDeviceContext *aContext,
++                      nsIAppShell *aAppShell,
++                      nsIToolkit *aToolkit,
++                      nsWidgetInitData *aInitData);
++    NS_IMETHOD Destroy(void);
++    NS_IMETHOD ConfigureChildren(const nsTArray<nsIWidget::Configuration>&);
++    NS_IMETHOD SetParent(nsIWidget* aNewParent);
++    virtual nsIWidget *GetParent(void);
++    NS_IMETHOD Show(PRBool aState);
++    NS_IMETHOD SetModal(PRBool aModal);
++    NS_IMETHOD IsVisible(PRBool & aState);
++    NS_IMETHOD ConstrainPosition(PRBool aAllowSlop,
++                                 PRInt32 *aX,
++                                 PRInt32 *aY);
++    NS_IMETHOD Move(PRInt32 aX,
++                    PRInt32 aY);
++    NS_IMETHOD Resize(PRInt32 aWidth,
++                      PRInt32 aHeight,
++                      PRBool  aRepaint);
++    NS_IMETHOD Resize(PRInt32 aX,
++                      PRInt32 aY,
++                      PRInt32 aWidth,
++                      PRInt32 aHeight,
++                      PRBool aRepaint);
++    NS_IMETHOD SetZIndex(PRInt32 aZIndex);
++    NS_IMETHOD PlaceBehind(nsTopLevelWidgetZPlacement aPlacement,
++                           nsIWidget *aWidget,
++                           PRBool aActivate);
++    NS_IMETHOD SetSizeMode(PRInt32 aMode);
++    NS_IMETHOD Enable(PRBool aState);
++    NS_IMETHOD IsEnabled(PRBool *aState);
++    NS_IMETHOD Invalidate(const nsIntRect &aRect,
++                          PRBool aIsSynchronous);
++    NS_IMETHOD Update();
++    void Scroll(const nsIntPoint&,
++                const nsTArray<nsIntRect>&,
++                const nsTArray<nsIWidget::Configuration>&);
++    NS_IMETHOD SetFocus(PRBool aRaise = PR_FALSE);
++    NS_IMETHOD GetScreenBounds(nsIntRect &aRect);
++    virtual nsIntPoint WidgetToScreenOffset();
++    NS_IMETHOD DispatchEvent(nsGUIEvent *aEvent, nsEventStatus &aStatus);
++    nsEventStatus DispatchEvent(nsGUIEvent *aEvent);
++    NS_IMETHOD SetWindowClass(const nsAString& xulWinType);
++
++
++
++    NS_IMETHOD SetForegroundColor(const nscolor &aColor) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD SetBackgroundColor(const nscolor &aColor) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD SetCursor(nsCursor aCursor) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD SetCursor(imgIContainer* aCursor,
++                         PRUint32 aHotspotX,
++                         PRUint32 aHotspotY) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD SetHasTransparentBackground(PRBool aTransparent) { return NS_OK; }
++    NS_IMETHOD GetHasTransparentBackground(PRBool& aTransparent) { aTransparent = PR_FALSE; return NS_OK; }
++    NS_IMETHOD HideWindowChrome(PRBool aShouldHide) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD MakeFullScreen(PRBool aFullScreen) { return NS_ERROR_NOT_IMPLEMENTED; }
++    virtual void* GetNativeData(PRUint32 aDataType);
++    NS_IMETHOD SetTitle(const nsAString& aTitle) { return NS_OK; }
++    NS_IMETHOD SetIcon(const nsAString& aIconSpec) { return NS_OK; }
++    NS_IMETHOD EnableDragDrop(PRBool aEnable) { return NS_OK; }
++    NS_IMETHOD CaptureMouse(PRBool aCapture) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD CaptureRollupEvents(nsIRollupListener *aListener,
++                                   nsIMenuRollup *aMenuRollup,
++                                   PRBool aDoCapture,
++                                   PRBool aConsumeRollupEvent) { return NS_ERROR_NOT_IMPLEMENTED; }
++
++    NS_IMETHOD GetAttention(PRInt32 aCycleCount) { return NS_ERROR_NOT_IMPLEMENTED; }
++    NS_IMETHOD BeginResizeDrag(nsGUIEvent* aEvent, PRInt32 aHorizontal, PRInt32 aVertical) { return NS_ERROR_NOT_IMPLEMENTED; }
++
++    NS_IMETHOD SetIMEEnabled(PRUint32 aState) { return NS_ERROR_NOT_IMPLEMENTED; };
++    NS_IMETHOD GetIMEEnabled(PRUint32* aState) { return NS_ERROR_NOT_IMPLEMENTED; };
++
++    gfxASurface* GetThebesSurface();
++
++protected:
++    void BringToFront();
++    nsWindow *FindTopLevel();
++    PRBool DrawTo(gfxASurface *targetSurface);
++    PRBool IsTopLevel();
++    nsresult GetCurrentOffset(PRUint32 &aOffset, PRUint32 &aLength);
++    nsresult DeleteRange(int aOffset, int aLen);
++
++    PRPackedBool mIsVisible;
++    nsTArray<nsWindow*> mChildren;
++    nsWindow* mParent;
++
++    void OnMouseEvent(SDL_Event *sdlevt, nsIntPoint pt);
++    void InitKeyEvent(nsKeyEvent& event, SDL_keysym &keysym);
++    void OnKeyEvent(SDL_KeyboardEvent &keyevt);
++    void OnSizeChanged(const gfxIntSize& aSize);
++
++    static void DumpWindows();
++    static void DumpWindows(const nsTArray<nsWindow*>& wins, int indent = 0);
++    static void LogWindow(nsWindow *win, int index, int indent);
++};
++
++#endif /* NSWINDOW_H_ */

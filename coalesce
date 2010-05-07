@@ -1,0 +1,105 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271901328 25200
+
+[palm] Better event coalescing
+
+diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
+--- a/widget/src/webos/nsAppShell.cpp
++++ b/widget/src/webos/nsAppShell.cpp
+@@ -162,7 +162,7 @@ nsAppShell::ScheduleRedraw()
+     PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("ScheduleRedraw"));
+ 
+     SDL_Event sdlevt;
+-    sdlevt.type = SDL_USEREVENT;
++    sdlevt.type = WEBOS_EVENT_REDRAW;
+     sdlevt.user.code = WEBOS_EVENT_REDRAW;
+     SDL_PushEvent(&sdlevt);
+ }
+@@ -171,12 +171,7 @@ PRBool
+ nsAppShell::ShouldCoalesceEvent(SDL_Event &event)
+ {
+     switch (event.type) {
+-    case SDL_USEREVENT:
+-        switch (event.user.code) {
+-        case WEBOS_EVENT_REDRAW:
+-            return PR_TRUE;
+-        }
+-        break;
++    case WEBOS_EVENT_REDRAW:
+     case SDL_MOUSEMOTION:
+     case SDL_JOYAXISMOTION:
+     case SDL_VIDEORESIZE:
+@@ -189,15 +184,7 @@ nsAppShell::ShouldCoalesceEvent(SDL_Even
+ PRBool
+ nsAppShell::CanCoalesceEvents(SDL_Event &event1, SDL_Event &event2)
+ {
+-    if (event1.type != event2.type) {
+-        return PR_FALSE;
+-    }
+-
+-    if (event1.type == SDL_USEREVENT && event1.user.code != event2.user.code) {
+-        return PR_FALSE;
+-    }
+-
+-    return PR_TRUE;
++    return event1.type == event2.type;
+ }
+ 
+ PRBool
+@@ -217,7 +204,7 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
+         SDL_Event pendingEvent;
+         while (true)
+         {
+-            count = SDL_PeepEvents(&pendingEvent, 1, SDL_PEEKEVENT, SDL_EVENTMASK (SDL_USEREVENT));
++            count = SDL_PeepEvents(&pendingEvent, 1, SDL_PEEKEVENT, SDL_ALLEVENTS);
+             if (count <= 0)
+                 break;
+             if (!CanCoalesceEvents(event, pendingEvent))
+diff --git a/widget/src/webos/nsAppShell.h b/widget/src/webos/nsAppShell.h
+--- a/widget/src/webos/nsAppShell.h
++++ b/widget/src/webos/nsAppShell.h
+@@ -45,7 +45,7 @@
+ #include "PDL.h"
+ #include "SDL.h"
+ 
+-#define WEBOS_EVENT_REDRAW 1
++#define WEBOS_EVENT_REDRAW (SDL_USEREVENT + 1)
+ 
+ class nsAppShell : public nsBaseAppShell
+ {
+diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
+--- a/widget/src/webos/nsWindow.cpp
++++ b/widget/src/webos/nsWindow.cpp
+@@ -40,6 +40,7 @@
+ #include "nsScreenManager.h"
+ #include "nsAppShell.h"
+ #include "prlog.h"
++#include "nsWidgetAtoms.h"
+ 
+ #include "nsIDeviceContext.h"
+ #include "nsIRenderingContext.h"
+@@ -601,7 +602,7 @@ nsWindow::OnGlobalSDLEvent(SDL_Event *sd
+             gFocusedWindow->OnSDLEvent(sdlevt);
+             break;
+         }
+-    case SDL_USEREVENT:
++    case WEBOS_EVENT_REDRAW:
+     case SDL_VIDEORESIZE:
+     case SDL_MOUSEBUTTONDOWN:
+     case SDL_MOUSEBUTTONUP:
+@@ -630,12 +631,8 @@ nsWindow::OnSDLEvent(SDL_Event *sdlevt) 
+         Resize(sdlevt->resize.w, sdlevt->resize.h, PR_FALSE);
+         Redraw();
+         break;
+-    case SDL_USEREVENT:
+-        switch (sdlevt->user.code) {
+-        case WEBOS_EVENT_REDRAW:
+-            Redraw();
+-            break;
+-        }
++    case WEBOS_EVENT_REDRAW:
++        Redraw();
+         break;
+     case SDL_MOUSEBUTTONDOWN:
+     case SDL_MOUSEBUTTONUP:

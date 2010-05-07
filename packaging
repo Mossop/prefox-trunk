@@ -1,0 +1,268 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271808761 25200
+# Node ID 4855ce897bf3effec178fa6ede9499e4e95bd51f
+# Parent  b3a902e15ec0c36b0a448ec5b228db05915bc10e
+[palm] Application packaging
+
+diff --git a/embedding/Makefile.in b/embedding/Makefile.in
+--- a/embedding/Makefile.in
++++ b/embedding/Makefile.in
+@@ -52,4 +52,8 @@ XPCSHELL_TESTS = tests/unit
+ DIRS += test
+ endif
+ 
++ifdef WEBOS
++TOOL_DIRS = webos
++endif
++
+ include $(topsrcdir)/config/rules.mk
+diff --git a/embedding/webos/Makefile.in b/embedding/webos/Makefile.in
+new file mode 100644
+--- /dev/null
++++ b/embedding/webos/Makefile.in
+@@ -0,0 +1,101 @@
++# ***** BEGIN LICENSE BLOCK *****
++# Version: MPL 1.1/GPL 2.0/LGPL 2.1
++#
++# The contents of this file are subject to the Mozilla Public License Version
++# 1.1 (the "License"); you may not use this file except in compliance with
++# the License. You may obtain a copy of the License at
++# http://www.mozilla.org/MPL/
++#
++# Software distributed under the License is distributed on an "AS IS" basis,
++# WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++# for the specific language governing rights and limitations under the
++# License.
++#
++# The Original Code is the Mozilla browser.
++#
++# The Initial Developer of the Original Code is
++#   The Mozilla Foundation
++# Portions created by the Initial Developer are Copyright (C) 2009
++# the Initial Developer. All Rights Reserved.
++#
++# Contributor(s):
++#   Dave Townsend <dtownsend@oxymoronical.com>
++#
++# Alternatively, the contents of this file may be used under the terms of
++# either the GNU General Public License Version 2 or later (the "GPL"), or
++# the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++# in which case the provisions of the GPL or the LGPL are applicable instead
++# of those above. If you wish to allow use of your version of this file only
++# under the terms of either the GPL or the LGPL, and not to allow others to
++# use your version of this file under the terms of the MPL, indicate your
++# decision by deleting the provisions above and replace them with the notice
++# and other provisions required by the GPL or the LGPL. If you do not delete
++# the provisions above, a recipient may use your version of this file under
++# the terms of any one of the MPL, the GPL or the LGPL.
++#
++# ***** END LICENSE BLOCK *****
++
++DEPTH		= ../..
++topsrcdir	= @top_srcdir@
++srcdir		= @srcdir@
++VPATH		= @srcdir@
++
++include $(DEPTH)/config/autoconf.mk
++
++APP_VERSION = 1.0.0
++
++PKG_NAME = com.fractalbrew.$(MOZ_APP_NAME)_$(APP_VERSION)_all.ipk
++
++DEFINES += \
++  -DMOZ_APP_DISPLAYNAME=$(MOZ_APP_DISPLAYNAME) \
++  -DMOZ_APP_NAME=$(MOZ_APP_NAME) \
++  -DAPP_VERSION=$(APP_VERSION) \
++  $(NULL)
++
++COPY_FILES = \
++	chrome \
++	components \
++	defaults \
++	modules \
++	res \
++	application.ini \
++	greprefs.js \
++	platform.ini \
++	$(MOZ_APP_NAME) \
++	$(NULL)
++
++NATIVE_LIBS = $(shell cat $(DIST)/bin/dependentlibs.list) libxpcom.so libnssckbi.so libfreebl3.so
++
++PACKAGE_FILES = \
++	appinfo.json \
++	icon.png \
++	package.properties \
++	$(NULL)
++
++include $(topsrcdir)/config/rules.mk
++
++appinfo.json: appinfo.json.in
++	$(PYTHON) $(topsrcdir)/config/Preprocessor.py \
++             $(AUTOMATION_PPARGS) $(DEFINES) $(ACDEFINES) $< > $@
++
++package.properties: package.properties.in
++	$(PYTHON) $(topsrcdir)/config/Preprocessor.py \
++             $(AUTOMATION_PPARGS) $(DEFINES) $(ACDEFINES) $< > $@
++
++package:: $(PACKAGE_FILES)
++	rm -rf $(DIST)/webos
++	mkdir -p $(DIST)/webos
++	$(INSTALL) $(foreach f,$^,"$f") $(DIST)/webos
++	@(for f in $(COPY_FILES) ; do if [ -e $(DIST)/bin/$$f ]; then echo $$f; cp -r $(DIST)/bin/$$f $(DIST)/webos; fi; done)
++	@(for f in $(NATIVE_LIBS) ; do if [ -e $(DIST)/bin/$$f ]; then echo $$f; cp $(DIST)/bin/$$f $(DIST)/webos; fi; done)
++	@(for f in $(NATIVE_LIBS) ; do if [ -e $(DIST)/webos/$$f ]; then $(STRIP) $(DIST)/webos/$$f; fi; done)
++	$(DIST)/host/bin/host_xpt_link $(DIST)/webos/gecko.xpt $(DIST)/webos/components/*.xpt
++	rm $(DIST)/webos/components/*.xpt
++	mv $(DIST)/webos/gecko.xpt $(DIST)/webos/components
++	cat $(DIST)/webos/chrome/*.manifest > $(DIST)/webos/chrome.manifest
++	rm $(DIST)/webos/chrome/*.manifest
++	mv $(DIST)/webos/chrome.manifest $(DIST)/webos/chrome
++	$(PALM_PDK)/bin/pdk-package -o $(DIST) $(DIST)/webos
++
++install:: $(DIST)/$(PKG_NAME)
++	$(PALM_PDK)/bin/pdk-install $(DIST)/$(PKG_NAME)
+diff --git a/embedding/webos/appinfo.json.in b/embedding/webos/appinfo.json.in
+new file mode 100644
+--- /dev/null
++++ b/embedding/webos/appinfo.json.in
+@@ -0,0 +1,10 @@
++#filter substitution
++{
++	"id": "com.fractalbrew.@MOZ_APP_NAME@",
++	"version": "@APP_VERSION@",
++	"vendor": "Fractal Brew Labs",
++	"type": "game",
++	"main": "@MOZ_APP_NAME@",
++	"title": "@MOZ_APP_DISPLAYNAME@",
++	"icon": "icon.png"
++}
+diff --git a/embedding/webos/icon.png b/embedding/webos/icon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..b940df9b1e90d2c077bf2111c5ed942a30ca06ff
+GIT binary patch
+literal 5937
+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
+TA@#s?00000NkvXXu0mjfGjyaB
+
+diff --git a/embedding/webos/package.properties.in b/embedding/webos/package.properties.in
+new file mode 100644
+--- /dev/null
++++ b/embedding/webos/package.properties.in
+@@ -0,0 +1,2 @@
++#filter substitution
++filemode.755 = @MOZ_APP_NAME@,@MOZ_APP_NAME@-bin

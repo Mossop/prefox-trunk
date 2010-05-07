@@ -1,0 +1,74 @@
+[palm] Allow building with ctypes
+
+diff --git a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -313,14 +313,16 @@ if test "$target" = "arm-palm-eabi" ; th
+         HOST_LDFLAGS=" "
+     fi
+ 
+-    MOZ_OPTIMIZE_FLAGS="-Os"
+-    CROSS_COMPILE=1
+     WEBOS=1
+     PALM_PDK="${palm_pdk}"
++    MOZ_OPTIMIZE_FLAGS="-Os"
+ 
+     AC_DEFINE(WEBOS)
++
+     AC_SUBST(WEBOS)
+     AC_SUBST(PALM_PDK)
++
++    CROSS_COMPILE=1
+ fi
+ 
+ dnl ========================================================
+diff --git a/js/src/configure.in b/js/src/configure.in
+--- a/js/src/configure.in
++++ b/js/src/configure.in
+@@ -335,11 +335,24 @@ if test "$target" = "arm-palm-eabi" ; th
+         HOST_LDFLAGS=" "
+     fi
+ 
++    WEBOS=1
+     PALM_PDK="${palm_pdk}"
+ 
++    AC_DEFINE(FORCE_LITTLE_ENDIAN)
++
+     AC_SUBST(WEBOS)
+     AC_SUBST(PALM_PDK)
+-    AC_DEFINE(FORCE_LITTLE_ENDIAN)
++
++    # save these for libffi's subconfigure,
++    # which doesn't know how to figure this stuff out on its own
++    ANDROID_CC="$CC"
++    ANDROID_CPP="$CPP"
++    ANDROID_LD="$LD"
++    ANDROID_AR="$AR"
++    ANDROID_RANLIB="$RANLIB"
++    ANDROID_CFLAGS="$CFLAGS"
++    ANDROID_CPPFLAGS="$CPPFLAGS"
++    ANDROID_LDFLAGS="$LDFLAGS"
+ fi
+ 
+ dnl ========================================================
+@@ -5433,6 +5446,20 @@ if test "$JS_HAS_CTYPES"; then
+     *-mingw*)
+       ac_configure_args="$ac_configure_args --build=$build --host=${target_cpu}-${target_os} HOST_CC=\"$HOST_CC\" CC=\"$CC\""
+       ;;
++    *-palm*)
++      CC="$ANDROID_CC"
++      CPP="$ANDROID_CPP"
++      LD="$ANDROID_LD"
++      AR="$ANDROID_AR"
++      RANLIB="$ANDROID_RANLIB"
++      CFLAGS="$ANDROID_CFLAGS"
++      CPPFLAGS="$ANDROID_CPPFLAGS"
++      LDFLAGS="$ANDROID_LDFLAGS"
++
++      export CC CPP LD AR RANLIB CPPFLAGS CFLAGS LDFLAGS
++
++      ac_configure_args="$ac_configure_args --build=$build --host=${target_cpu}-${target_os} HOST_CC=\"$HOST_CC\""
++      ;;
+     *)
+       ac_configure_args="$ac_configure_args --build=$build --host=$target HOST_CC=\"$HOST_CC\" CC=\"$CC\""
+       ;;

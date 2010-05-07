@@ -1,0 +1,163 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1271307724 25200
+# Node ID b3a902e15ec0c36b0a448ec5b228db05915bc10e
+# Parent  72fc7a4917b8586882b625b8faac037a1bde1cfa
+[palm] Better event handling and device setup
+
+diff --git a/toolkit/library/libxul-config.mk b/toolkit/library/libxul-config.mk
+--- a/toolkit/library/libxul-config.mk
++++ b/toolkit/library/libxul-config.mk
+@@ -391,5 +391,5 @@ EXTRA_DSO_LDOPTS += $(REALTIME_LIBS)
+ endif
+ 
+ ifdef WEBOS
+-OS_LIBS += -lGLESv2 -lSDL
++OS_LIBS += -lGLESv2 -lSDL -lpdl
+ endif
+diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
+--- a/widget/src/webos/Makefile.in
++++ b/widget/src/webos/Makefile.in
+@@ -84,6 +84,7 @@ EXTRA_DSO_LDOPTS = \
+ 	$(QCMS_LIBS) \
+ 	-lGLESv2 \
+ 	-lSDL \
++	-lpdl \
+ 	$(NULL)
+ 
+ EXTRA_DSO_LDOPTS += -L$(DIST)/lib
+diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
+--- a/widget/src/webos/nsAppShell.cpp
++++ b/widget/src/webos/nsAppShell.cpp
+@@ -44,8 +44,6 @@
+ 
+ #include <pthread.h>
+ 
+-#include "SDL/SDL.h"
+-
+ using namespace mozilla;
+ 
+ PRLogModuleInfo* gAppShellLog = nsnull;
+@@ -94,6 +92,37 @@ nsAppShell::ScheduleRedraw()
+ }
+ 
+ PRBool
++nsAppShell::ShouldCoalesceEvent(SDL_Event &event)
++{
++    switch (event.type) {
++    case SDL_USEREVENT:
++        switch (event.user.code) {
++        case WEBOS_EVENT_REDRAW:
++            return PR_TRUE;
++        }
++        break;
++    case SDL_MOUSEMOTION:
++        return PR_TRUE;
++    }
++
++    return PR_FALSE;
++}
++
++PRBool
++nsAppShell::CanCoalesceEvents(SDL_Event &event1, SDL_Event &event2)
++{
++    if (event1.type != event2.type) {
++        return PR_FALSE;
++    }
++
++    if (event1.type == SDL_USEREVENT && event1.user.code != event2.user.code) {
++        return PR_FALSE;
++    }
++
++    return PR_TRUE;
++}
++
++PRBool
+ nsAppShell::ProcessNextNativeEvent(PRBool mayWait)
+ {
+     PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("ProcessNextNativeEvent(%d)", mayWait));
+@@ -101,25 +130,21 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
+     SDL_Event event;
+     int count = SDL_PollEvent(&event);
+ 
+-    PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("Got %d events", count));
+-
+     if (count == 0)
+         return PR_FALSE;
+ 
+     PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("Got event type %d", event.type));
+ 
+-    if (event.type == SDL_USEREVENT && event.user.code == WEBOS_EVENT_REDRAW)
++    if (ShouldCoalesceEvent(event))
+     {
+-        // Coalesce any redraw events in the queue
++        // Coalesce any events in the queue
+         SDL_Event pendingEvent;
+         while (true)
+         {
+-            PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("Peeping at the next event"));
+             count = SDL_PeepEvents(&pendingEvent, 1, SDL_PEEKEVENT, SDL_EVENTMASK (SDL_USEREVENT));
+-            PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("Got %d events", count));
+             if (count <= 0)
+                 break;
+-            if (pendingEvent.user.code != WEBOS_EVENT_REDRAW)
++            if (!CanCoalesceEvents(event, pendingEvent))
+                 break;
+             PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("Coalescing the next event"));
+             SDL_PollEvent(&event);
+diff --git a/widget/src/webos/nsAppShell.h b/widget/src/webos/nsAppShell.h
+--- a/widget/src/webos/nsAppShell.h
++++ b/widget/src/webos/nsAppShell.h
+@@ -40,9 +40,8 @@
+ #define nsAppShell_h__
+ 
+ #include "nsBaseAppShell.h"
+-#include "nsCOMPtr.h"
+ 
+-#include "prcvar.h"
++#include "SDL.h"
+ 
+ #define WEBOS_EVENT_REDRAW 1
+ 
+@@ -59,6 +58,8 @@ public:
+ 
+ protected:
+     virtual void ScheduleNativeEventCallback();
++    PRBool ShouldCoalesceEvent(SDL_Event &event);
++    PRBool CanCoalesceEvents(SDL_Event &event1, SDL_Event &event2);
+     virtual PRBool ProcessNextNativeEvent(PRBool mayWait);
+     virtual ~nsAppShell();
+ };
+diff --git a/widget/src/webos/nsScreenManager.cpp b/widget/src/webos/nsScreenManager.cpp
+--- a/widget/src/webos/nsScreenManager.cpp
++++ b/widget/src/webos/nsScreenManager.cpp
+@@ -41,7 +41,8 @@
+ #include "nsWindow.h"
+ #include "prlog.h"
+ 
+-#include "SDL/SDL.h"
++#include "PDL.h"
++#include "SDL.h"
+ 
+ PRLogModuleInfo* gScreenManagerLog = nsnull;
+ 
+@@ -138,7 +139,6 @@ nsScreenManager::GetBounds()
+         }
+         NS_ABORT_IF_FALSE(surface, "Could not get an SDL surface");
+ 
+-        SDL_EnableUNICODE(1);
+ 
+         gScreenBounds.width = surface->w;
+         gScreenBounds.height = surface->h;
+@@ -147,6 +147,11 @@ nsScreenManager::GetBounds()
+                ("Screen is % 3dx% 3d, %d bpp, hw(%d) db(%d)",
+                 gScreenBounds.width, gScreenBounds.height, surface->format->BitsPerPixel,
+                 surface->flags & SDL_HWSURFACE, surface->flags & SDL_DOUBLEBUF));
++
++        SDL_EnableUNICODE(1);
++        PDL_BannerMessagesEnable(PDL_TRUE);
++        PDL_GesturesEnable(PDL_TRUE);
++        PDL_ScreenTimeoutEnable(PDL_TRUE);
+     }
+ 
+     return gScreenBounds;
