@@ -5,9 +5,9 @@
 # Parent  ba3f2002dbf22292644b328dba05b8e802016e6a
 [palm] Switch to PR logging throughout
 
-diff --git a/gfx/thebes/public/gfxWebOSPlatform.h b/gfx/thebes/public/gfxWebOSPlatform.h
---- a/gfx/thebes/public/gfxWebOSPlatform.h
-+++ b/gfx/thebes/public/gfxWebOSPlatform.h
+diff --git a/gfx/thebes/gfxWebOSPlatform.h b/gfx/thebes/gfxWebOSPlatform.h
+--- a/gfx/thebes/gfxWebOSPlatform.h
++++ b/gfx/thebes/gfxWebOSPlatform.h
 @@ -88,6 +88,7 @@ public:
      FT_Library GetFTLibrary();
  
@@ -16,9 +16,9 @@ diff --git a/gfx/thebes/public/gfxWebOSPlatform.h b/gfx/thebes/public/gfxWebOSPl
      void AppendFacesFromFontFile(const char *aFileName);
  
      typedef nsDataHashtable<nsStringHashKey, nsRefPtr<FontFamily> > FontTable;
-diff --git a/gfx/thebes/src/gfxWebOSPlatform.cpp b/gfx/thebes/src/gfxWebOSPlatform.cpp
---- a/gfx/thebes/src/gfxWebOSPlatform.cpp
-+++ b/gfx/thebes/src/gfxWebOSPlatform.cpp
+diff --git a/gfx/thebes/gfxWebOSPlatform.cpp b/gfx/thebes/gfxWebOSPlatform.cpp
+--- a/gfx/thebes/gfxWebOSPlatform.cpp
++++ b/gfx/thebes/gfxWebOSPlatform.cpp
 @@ -58,10 +58,20 @@
  #include FT_FREETYPE_H
  #include "gfxFT2Fonts.h"

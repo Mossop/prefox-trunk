@@ -4,9 +4,9 @@
 
 [palm] Add webOS to the Http user agent
 
-diff --git a/netwerk/protocol/http/src/nsHttpHandler.cpp b/netwerk/protocol/http/src/nsHttpHandler.cpp
---- a/netwerk/protocol/http/src/nsHttpHandler.cpp
-+++ b/netwerk/protocol/http/src/nsHttpHandler.cpp
+diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsHttpHandler.cpp
+--- a/netwerk/protocol/http/nsHttpHandler.cpp
++++ b/netwerk/protocol/http/nsHttpHandler.cpp
 @@ -678,6 +678,8 @@ nsHttpHandler::InitUserAgentComponents()
      "BeOS"
  #elif defined(MOZ_X11)

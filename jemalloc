@@ -1,9 +1,13 @@
+# HG changeset patch
+# Parent 6d5c0f2eccb12d5629ad4691167c487277546b27
+# Date 1278534402 25200
+
 [palm] Allow building with jemalloc
 
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -2886,7 +2886,7 @@ alpha*-*-osf*)
+@@ -2912,7 +2912,7 @@ alpha*-*-osf*)
  
      MOZ_GFX_OPTIMIZE_MOBILE=1
  
@@ -12,8 +16,8 @@ diff --git a/configure.in b/configure.in
      ;;
  
  esac
-@@ -7216,7 +7216,14 @@ if test "$MOZ_MEMORY"; then
-     AC_DEFINE(MOZ_MEMORY_WINDOWS)
+@@ -7409,7 +7409,14 @@ if test "$MOZ_MEMORY"; then
+     export WRAP_MALLOC_LIB="-L$_objdir/dist/lib -lmozalloc"
      ;;
    *)
 -    AC_MSG_ERROR([--enable-jemalloc not supported on ${target}])
@@ -31,8 +35,8 @@ diff --git a/configure.in b/configure.in
 diff --git a/js/src/configure.in b/js/src/configure.in
 --- a/js/src/configure.in
 +++ b/js/src/configure.in
-@@ -4384,7 +4384,14 @@ if test "$MOZ_MEMORY"; then
-     AC_DEFINE(MOZ_MEMORY_WINDOWS)
+@@ -4385,7 +4385,14 @@ if test "$MOZ_MEMORY"; then
+     AC_DEFINE(MOZ_MEMORY_ANDROID)
      ;;
    *)
 -    AC_MSG_ERROR([--enable-jemalloc not supported on ${target}])

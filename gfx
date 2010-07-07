@@ -1,15 +1,15 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271735591 25200
+# Date 1278528331 25200
 # Node ID 34c33efd206ab157ee8c1ab5a6ef8a56ee89c4d7
-# Parent  dc4aba80149e52b6fb7dec6ec7281bcd9b7aa86b
+# Parent a4ad59dec1aa083416c367576273c09ef9098555
 [palm] Add Palm GFX support
 
 diff --git a/gfx/src/thebes/Makefile.in b/gfx/src/thebes/Makefile.in
 --- a/gfx/src/thebes/Makefile.in
 +++ b/gfx/src/thebes/Makefile.in
-@@ -99,6 +99,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),cocoa)
- CMMSRCS		= nsSystemFontsMac.mm
+@@ -103,6 +103,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
+ CPPSRCS		+= nsSystemFontsAndroid.cpp
  endif
  
 +ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
@@ -227,17 +227,17 @@ new file mode 100644
 diff --git a/gfx/src/thebes/nsThebesDeviceContext.cpp b/gfx/src/thebes/nsThebesDeviceContext.cpp
 --- a/gfx/src/thebes/nsThebesDeviceContext.cpp
 +++ b/gfx/src/thebes/nsThebesDeviceContext.cpp
-@@ -87,6 +87,9 @@ static nsSystemFontsMac *gSystemFonts = 
- #elif defined(MOZ_WIDGET_QT)
- #include "nsSystemFontsQt.h"
- static nsSystemFontsQt *gSystemFonts = nsnull;
+@@ -91,6 +91,9 @@ static nsSystemFontsQt *gSystemFonts = n
+ #elif defined(ANDROID)
+ #include "nsSystemFontsAndroid.h"
+ static nsSystemFontsAndroid *gSystemFonts = nsnull;
 +#elif defined(WEBOS)
 +#include "nsSystemFontsWebOS.h"
 +static nsSystemFontsWebOS *gSystemFonts = nsnull;
  #else
  #error Need to declare gSystemFonts!
  #endif
-@@ -268,6 +271,7 @@ NS_IMPL_ISUPPORTS3(nsThebesDeviceContext
+@@ -272,6 +275,7 @@ NS_IMPL_ISUPPORTS3(nsThebesDeviceContext
  
  nsThebesDeviceContext::nsThebesDeviceContext()
  {
@@ -245,149 +245,20 @@ diff --git a/gfx/src/thebes/nsThebesDeviceContext.cpp b/gfx/src/thebes/nsThebesD
  #ifdef PR_LOGGING
      if (!gThebesGFXLog)
          gThebesGFXLog = PR_NewLogModule("thebesGfx");
-@@ -828,6 +832,8 @@ nsThebesDeviceContext::GetSystemFont(nsS
-         gSystemFonts = new nsSystemFontsMac();
- #elif defined(MOZ_WIDGET_QT)
+@@ -834,6 +838,8 @@ nsThebesDeviceContext::GetSystemFont(nsS
          gSystemFonts = new nsSystemFontsQt();
+ #elif defined(ANDROID)
+         gSystemFonts = new nsSystemFontsAndroid();
 +#elif defined(WEBOS)
 +        gSystemFonts = new nsSystemFontsWebOS();
  #else
  #error Need to know how to create gSystemFonts, fix me!
  #endif
-diff --git a/gfx/thebes/public/Makefile.in b/gfx/thebes/public/Makefile.in
---- a/gfx/thebes/public/Makefile.in
-+++ b/gfx/thebes/public/Makefile.in
-@@ -57,6 +57,14 @@ endif
- 
- endif
- 
-+ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
-+EXPORTS += \
-+	gfxWebOSPlatform.h \
-+	gfxFT2Fonts.h \
-+	gfxFT2FontBase.h \
-+	$(NULL)
-+endif
-+
- ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
- 
- ifdef MOZ_X11
-diff --git a/gfx/thebes/public/gfxWebOSPlatform.h b/gfx/thebes/public/gfxWebOSPlatform.h
-new file mode 100644
---- /dev/null
-+++ b/gfx/thebes/public/gfxWebOSPlatform.h
-@@ -0,0 +1,106 @@
-+/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*-
-+ * ***** BEGIN LICENSE BLOCK *****
-+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
-+ *
-+ * The contents of this file are subject to the Mozilla Public License Version
-+ * 1.1 (the "License"); you may not use this file except in compliance with
-+ * the License. You may obtain a copy of the License at
-+ * http://www.mozilla.org/MPL/
-+ *
-+ * Software distributed under the License is distributed on an "AS IS" basis,
-+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-+ * for the specific language governing rights and limitations under the
-+ * License.
-+ *
-+ * The Original Code is Android port code.
-+ *
-+ * The Initial Developer of the Original Code is
-+ *   Mozilla Foundation
-+ * Portions created by the Initial Developer are Copyright (C) 2010
-+ * the Initial Developer. All Rights Reserved.
-+ *
-+ * Contributor(s):
-+ *   Vladimir Vukicevic <vladimir@pobox.com>
-+ *   Dave Townsend <dtownsend@oxymoronical.com>
-+ *
-+ * Alternatively, the contents of this file may be used under the terms of
-+ * either the GNU General Public License Version 2 or later (the "GPL"), or
-+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
-+ * in which case the provisions of the GPL or the LGPL are applicable instead
-+ * of those above. If you wish to allow use of your version of this file only
-+ * under the terms of either the GPL or the LGPL, and not to allow others to
-+ * use your version of this file under the terms of the MPL, indicate your
-+ * decision by deleting the provisions above and replace them with the notice
-+ * and other provisions required by the GPL or the LGPL. If you do not delete
-+ * the provisions above, a recipient may use your version of this file under
-+ * the terms of any one of the MPL, the GPL or the LGPL.
-+ *
-+ * ***** END LICENSE BLOCK ***** */
-+
-+#ifndef GFX_PLATFORM_PALM_H
-+#define GFX_PLATFORM_PALM_H
-+
-+#include "gfxFontUtils.h"
-+#include "gfxFT2Fonts.h"
-+#include "gfxPlatform.h"
-+#include "nsDataHashtable.h"
-+#include "nsTArray.h"
-+
-+typedef struct FT_LibraryRec_ *FT_Library;
-+
-+class FontFamily;
-+class FontEntry;
-+
-+class THEBES_API gfxWebOSPlatform : public gfxPlatform {
-+public:
-+    gfxWebOSPlatform();
-+    virtual ~gfxWebOSPlatform();
-+
-+    static gfxWebOSPlatform *GetPlatform() {
-+        return (gfxWebOSPlatform*) gfxPlatform::GetPlatform();
-+    }
-+
-+    already_AddRefed<gfxASurface> CreateOffscreenSurface(const gfxIntSize& size,
-+                                                         gfxASurface::gfxImageFormat imageFormat);
-+
-+    nsresult GetFontList(nsIAtom *aLangGroup,
-+                         const nsACString& aGenericFamily,
-+                         nsTArray<nsString>& aListOfFonts);
-+
-+    nsresult UpdateFontList();
-+
-+    nsresult ResolveFontName(const nsAString& aFontName,
-+                             FontResolverCallback aCallback,
-+                             void *aClosure, PRBool& aAborted);
-+
-+    nsresult GetStandardFamilyName(const nsAString& aFontName, nsAString& aFamilyName);
-+
-+    gfxFontGroup *CreateFontGroup(const nsAString &aFamilies,
-+                                  const gfxFontStyle *aStyle,
-+                                  gfxUserFontSet* aUserFontSet);
-+
-+    FontFamily *FindFontFamily(const nsAString& aName);
-+    FontEntry *FindFontEntry(const nsAString& aFamilyName, const gfxFontStyle& aFontStyle);
-+    already_AddRefed<gfxFont> FindFontForChar(PRUint32 aCh, gfxFont *aFont);
-+    PRBool GetPrefFontEntries(const nsCString& aLangGroup, nsTArray<nsRefPtr<gfxFontEntry> > *aFontEntryList);
-+    void SetPrefFontEntries(const nsCString& aLangGroup, nsTArray<nsRefPtr<gfxFontEntry> >& aFontEntryList);
-+
-+    FT_Library GetFTLibrary();
-+
-+protected:
-+    void AppendFacesFromFontFile(const char *aFileName);
-+
-+    typedef nsDataHashtable<nsStringHashKey, nsRefPtr<FontFamily> > FontTable;
-+
-+    FontTable mFonts;
-+    FontTable mFontAliases;
-+    FontTable mFontSubstitutes;
-+
-+    // when system-wide font lookup fails for a character, cache it to skip future searches
-+    gfxSparseBitSet mCodepointsWithNoFonts;
-+    
-+    nsDataHashtable<nsCStringHashKey, nsTArray<nsRefPtr<gfxFontEntry> > > mPrefFonts;
-+};
-+
-+#endif /* GFX_PLATFORM_PALM_H */
-+
-diff --git a/gfx/thebes/src/Makefile.in b/gfx/thebes/src/Makefile.in
---- a/gfx/thebes/src/Makefile.in
-+++ b/gfx/thebes/src/Makefile.in
-@@ -89,6 +89,16 @@ OS_LIBS		+= $(call EXPAND_LIBNAME,$(_OS_
- ACDEFINES +=	-UWIN32_LEAN_AND_MEAN
+diff --git a/gfx/thebes/Makefile.in b/gfx/thebes/Makefile.in
+--- a/gfx/thebes/Makefile.in
++++ b/gfx/thebes/Makefile.in
+@@ -282,6 +282,16 @@ CPPSRCS += \
+ 	$(NULL)
  endif
  
 +ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
@@ -403,8 +274,23 @@ diff --git a/gfx/thebes/src/Makefile.in b/gfx/thebes/src/Makefile.in
  ifeq ($(MOZ_WIDGET_TOOLKIT),os2)
  CPPSRCS	+=	gfxOS2Fonts.cpp \
  		gfxOS2Platform.cpp \
-@@ -196,6 +206,10 @@ CXXFLAGS += $(CAIRO_FT_CFLAGS)
+@@ -292,6 +302,14 @@ CPPSRCS	+=	gfxOS2Fonts.cpp \
+ CPPSRCS +=	gfxPDFSurface.cpp
  endif
+ 
++ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
++EXPORTS += \
++	gfxWebOSPlatform.h \
++	gfxFT2Fonts.h \
++	gfxFT2FontBase.h \
++	$(NULL)
++endif
++
+ ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
+ 
+ ifdef MOZ_PANGO
+@@ -427,6 +445,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
+ CXXFLAGS += $(CAIRO_FT_CFLAGS)
  endif
  
 +ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
@@ -414,44 +300,44 @@ diff --git a/gfx/thebes/src/Makefile.in b/gfx/thebes/src/Makefile.in
  ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
  CXXFLAGS += $(MOZ_PANGO_CFLAGS)
  endif
-diff --git a/gfx/thebes/src/gfxFT2Fonts.cpp b/gfx/thebes/src/gfxFT2Fonts.cpp
---- a/gfx/thebes/src/gfxFT2Fonts.cpp
-+++ b/gfx/thebes/src/gfxFT2Fonts.cpp
-@@ -48,6 +48,9 @@
- #include "gfxWindowsPlatform.h"
- #define gfxToolkitPlatform gfxWindowsPlatform
- #include "gfxFT2FontList.h"
+diff --git a/gfx/thebes/gfxFT2Fonts.cpp b/gfx/thebes/gfxFT2Fonts.cpp
+--- a/gfx/thebes/gfxFT2Fonts.cpp
++++ b/gfx/thebes/gfxFT2Fonts.cpp
+@@ -51,6 +51,9 @@
+ #elif defined(ANDROID)
+ #include "gfxAndroidPlatform.h"
+ #define gfxToolkitPlatform gfxAndroidPlatform
 +#elif defined(WEBOS)
 +#include "gfxWebOSPlatform.h"
 +#define gfxToolkitPlatform gfxWebOSPlatform
  #endif
+ 
  #include "gfxTypes.h"
- #include "gfxFT2Fonts.h"
-@@ -357,6 +360,8 @@ gfxFT2FontGroup::gfxFT2FontGroup(const n
-         LOGFONTW logFont;
-         if (hGDI && ::GetObjectW(hGDI, sizeof(logFont), &logFont))
+@@ -364,6 +367,8 @@ gfxFT2FontGroup::gfxFT2FontGroup(const n
              familyArray.AppendElement(nsDependentString(logFont.lfFaceName));
+ #elif defined(ANDROID)
+         familyArray.AppendElement(NS_LITERAL_STRING("Droid Sans"));
 +#elif defined(WEBOS)
 +        familyArray.AppendElement(NS_LITERAL_STRING("Prelude"));
  #else
  #error "Platform not supported"
  #endif
-diff --git a/gfx/thebes/src/gfxPlatform.cpp b/gfx/thebes/src/gfxPlatform.cpp
---- a/gfx/thebes/src/gfxPlatform.cpp
-+++ b/gfx/thebes/src/gfxPlatform.cpp
-@@ -49,6 +49,8 @@
- #include "gfxBeOSPlatform.h"
- #elif defined(XP_OS2)
+diff --git a/gfx/thebes/gfxPlatform.cpp b/gfx/thebes/gfxPlatform.cpp
+--- a/gfx/thebes/gfxPlatform.cpp
++++ b/gfx/thebes/gfxPlatform.cpp
+@@ -51,6 +51,8 @@
  #include "gfxOS2Platform.h"
+ #elif defined(ANDROID)
+ #include "gfxAndroidPlatform.h"
 +#elif defined(WEBOS)
 +#include "gfxWebOSPlatform.h"
  #endif
  
  #include "gfxAtoms.h"
-@@ -191,6 +193,10 @@ gfxPlatform::Init()
-     gPlatform = new gfxBeOSPlatform;
- #elif defined(XP_OS2)
+@@ -234,6 +236,10 @@ gfxPlatform::Init()
      gPlatform = new gfxOS2Platform;
+ #elif defined(ANDROID)
+     gPlatform = new gfxAndroidPlatform;
 +#elif defined(WEBOS)
 +    gPlatform = new gfxWebOSPlatform;
 +#else
@@ -459,10 +345,10 @@ diff --git a/gfx/thebes/src/gfxPlatform.cpp b/gfx/thebes/src/gfxPlatform.cpp
  #endif
      if (!gPlatform)
          return NS_ERROR_OUT_OF_MEMORY;
-diff --git a/gfx/thebes/src/gfxWebOSPlatform.cpp b/gfx/thebes/src/gfxWebOSPlatform.cpp
+diff --git a/gfx/thebes/gfxWebOSPlatform.cpp b/gfx/thebes/gfxWebOSPlatform.cpp
 new file mode 100644
 --- /dev/null
-+++ b/gfx/thebes/src/gfxWebOSPlatform.cpp
++++ b/gfx/thebes/gfxWebOSPlatform.cpp
 @@ -0,0 +1,335 @@
 +/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*-
 + * ***** BEGIN LICENSE BLOCK *****
@@ -799,3 +685,114 @@ new file mode 100644
 +{
 +    mPrefFonts.Put(aKey, aFontEntryList);
 +}
+diff --git a/gfx/thebes/gfxWebOSPlatform.h b/gfx/thebes/gfxWebOSPlatform.h
+new file mode 100644
+--- /dev/null
++++ b/gfx/thebes/gfxWebOSPlatform.h
+@@ -0,0 +1,106 @@
++/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*-
++ * ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Android port code.
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Foundation
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Vladimir Vukicevic <vladimir@pobox.com>
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef GFX_PLATFORM_PALM_H
++#define GFX_PLATFORM_PALM_H
++
++#include "gfxFontUtils.h"
++#include "gfxFT2Fonts.h"
++#include "gfxPlatform.h"
++#include "nsDataHashtable.h"
++#include "nsTArray.h"
++
++typedef struct FT_LibraryRec_ *FT_Library;
++
++class FontFamily;
++class FontEntry;
++
++class THEBES_API gfxWebOSPlatform : public gfxPlatform {
++public:
++    gfxWebOSPlatform();
++    virtual ~gfxWebOSPlatform();
++
++    static gfxWebOSPlatform *GetPlatform() {
++        return (gfxWebOSPlatform*) gfxPlatform::GetPlatform();
++    }
++
++    already_AddRefed<gfxASurface> CreateOffscreenSurface(const gfxIntSize& size,
++                                                         gfxASurface::gfxImageFormat imageFormat);
++
++    nsresult GetFontList(nsIAtom *aLangGroup,
++                         const nsACString& aGenericFamily,
++                         nsTArray<nsString>& aListOfFonts);
++
++    nsresult UpdateFontList();
++
++    nsresult ResolveFontName(const nsAString& aFontName,
++                             FontResolverCallback aCallback,
++                             void *aClosure, PRBool& aAborted);
++
++    nsresult GetStandardFamilyName(const nsAString& aFontName, nsAString& aFamilyName);
++
++    gfxFontGroup *CreateFontGroup(const nsAString &aFamilies,
++                                  const gfxFontStyle *aStyle,
++                                  gfxUserFontSet* aUserFontSet);
++
++    FontFamily *FindFontFamily(const nsAString& aName);
++    FontEntry *FindFontEntry(const nsAString& aFamilyName, const gfxFontStyle& aFontStyle);
++    already_AddRefed<gfxFont> FindFontForChar(PRUint32 aCh, gfxFont *aFont);
++    PRBool GetPrefFontEntries(const nsCString& aLangGroup, nsTArray<nsRefPtr<gfxFontEntry> > *aFontEntryList);
++    void SetPrefFontEntries(const nsCString& aLangGroup, nsTArray<nsRefPtr<gfxFontEntry> >& aFontEntryList);
++
++    FT_Library GetFTLibrary();
++
++protected:
++    void AppendFacesFromFontFile(const char *aFileName);
++
++    typedef nsDataHashtable<nsStringHashKey, nsRefPtr<FontFamily> > FontTable;
++
++    FontTable mFonts;
++    FontTable mFontAliases;
++    FontTable mFontSubstitutes;
++
++    // when system-wide font lookup fails for a character, cache it to skip future searches
++    gfxSparseBitSet mCodepointsWithNoFonts;
++    
++    nsDataHashtable<nsCStringHashKey, nsTArray<nsRefPtr<gfxFontEntry> > > mPrefFonts;
++};
++
++#endif /* GFX_PLATFORM_PALM_H */
++

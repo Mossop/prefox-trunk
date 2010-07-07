@@ -1,9 +1,13 @@
+# HG changeset patch
+# Parent 0922f53a9bc7f359f5209fb29ae9fd63d14ba458
+# Date 1278534411 25200
+
 [palm] Allow building with ctypes
 
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -313,14 +313,16 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -415,14 +415,16 @@ if test "$target" = "arm-palm-eabi" ; th
          HOST_LDFLAGS=" "
      fi
  
@@ -25,7 +29,7 @@ diff --git a/configure.in b/configure.in
 diff --git a/js/src/configure.in b/js/src/configure.in
 --- a/js/src/configure.in
 +++ b/js/src/configure.in
-@@ -335,11 +335,24 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -340,11 +340,24 @@ if test "$target" = "arm-palm-eabi" ; th
          HOST_LDFLAGS=" "
      fi
  
@@ -51,9 +55,9 @@ diff --git a/js/src/configure.in b/js/src/configure.in
  fi
  
  dnl ========================================================
-@@ -5433,6 +5446,20 @@ if test "$JS_HAS_CTYPES"; then
-     *-mingw*)
-       ac_configure_args="$ac_configure_args --build=$build --host=${target_cpu}-${target_os} HOST_CC=\"$HOST_CC\" CC=\"$CC\""
+@@ -5446,6 +5459,20 @@ if test "$JS_HAS_CTYPES"; then
+ 
+       ac_configure_args="$ac_configure_args --build=$build --host=${target_cpu}-${target_os} HOST_CC=\"$HOST_CC\""
        ;;
 +    *-palm*)
 +      CC="$ANDROID_CC"

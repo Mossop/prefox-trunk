@@ -1,13 +1,14 @@
 # HG changeset patch
+# Parent 4b55be4cce6e6ad335d624b5b49d13b36aa945ed
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271808815 25200
+# Date 1278526141 25200
 
 [palm] Miscellaneous build fixes from the android2 branch
 
 diff --git a/uriloader/exthandler/Makefile.in b/uriloader/exthandler/Makefile.in
 --- a/uriloader/exthandler/Makefile.in
 +++ b/uriloader/exthandler/Makefile.in
-@@ -86,7 +86,7 @@ endif
+@@ -90,7 +90,7 @@ endif
  LOCAL_INCLUDES = -I$(srcdir)
  
  ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
@@ -57,7 +58,7 @@ diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp b/uriloader/exthandler
  {
 +#ifdef MOZ_WIDGET_GTK2
    *_retval = PR_FALSE;
-   nsRefPtr<nsMIMEInfoBase> mimeInfo = nsGNOMERegistry::GetFromType(mType);
+   nsRefPtr<nsMIMEInfoBase> mimeInfo = nsGNOMERegistry::GetFromType(mSchemeOrType);
    if (!mimeInfo) {
 @@ -98,6 +107,7 @@ nsMIMEInfoUnix::GetHasDefaultHandler(PRB
      return NS_OK;
@@ -96,19 +97,3 @@ diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.h b/uriloader/exthandler/u
  
  protected:
    NS_IMETHOD GetHasDefaultHandler(PRBool *_retval);
-diff --git a/xpcom/typelib/xpidl/Makefile.in b/xpcom/typelib/xpidl/Makefile.in
---- a/xpcom/typelib/xpidl/Makefile.in
-+++ b/xpcom/typelib/xpidl/Makefile.in
-@@ -44,8 +44,10 @@ include $(DEPTH)/config/autoconf.mk
- 
- MODULE		= xpcom
- 
--ifneq (,$(filter-out WINCE SYMBIAN,$(OS_ARCH)))
--# Sadly, the code here is too smart for the WinCE/Symbian compiler's brain
-+# there's no reason to build a target xpidl, why do we do this at all?
-+##ifneq (,$(filter-out WINCE SYMBIAN,$(OS_ARCH)))
-+### Sadly, the code here is too smart for the WinCE/Symbian compiler's brain
-+ifndef CROSS_COMPILE
- PROGRAM		= xpidl$(BIN_SUFFIX)
- SDK_BINARY  = $(PROGRAM)
- endif

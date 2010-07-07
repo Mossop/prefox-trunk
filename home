@@ -1,20 +1,20 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271520416 25200
+# Date 1278534394 25200
 # Node ID caab0c2435109f57c6611b936184cfc1e0f9f8d0
-# Parent  871ac1800953f7e196d163aeffff876ba17c55c0
+# Parent 17c150945bffa8331cb1cffd145fdacf31cce6db
 [palm] Avoid crash when running from the launcher
 
 diff --git a/xpcom/io/SpecialSystemDirectory.cpp b/xpcom/io/SpecialSystemDirectory.cpp
 --- a/xpcom/io/SpecialSystemDirectory.cpp
 +++ b/xpcom/io/SpecialSystemDirectory.cpp
-@@ -291,6 +291,9 @@ GetUnixHomeDir(nsILocalFile** aFile)
-                                      PR_TRUE,
-                                      aFile);
+@@ -508,6 +508,9 @@ GetUnixXDGUserDirectory(SystemDirectorie
+ 
+         rv = file->AppendNative(NS_LITERAL_CSTRING(".documents"));
      }
 +#elif defined(WEBOS)
 +     // XXX no home dir on android; maybe we should return the sdcard if present?
 +     return NS_ERROR_FAILURE;
  #else
-     return NS_NewNativeLocalFile(nsDependentCString(PR_GetEnv("HOME")),
-                                  PR_TRUE, aFile);
+     else {
+       // no fallback for the other XDG dirs

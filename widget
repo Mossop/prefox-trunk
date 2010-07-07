@@ -1,15 +1,15 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1273181070 25200
+# Date 1278528427 25200
 # Node ID 5ab7ee57ac5501afbbadb071d2d05c21d8570836
-# Parent  34c33efd206ab157ee8c1ab5a6ef8a56ee89c4d7
+# Parent d02f64b6c2b0374855d1e1337cb85e32ddcfc109
 [palm] Add Web OS widget implementation
 
 diff --git a/toolkit/library/libxul-config.mk b/toolkit/library/libxul-config.mk
 --- a/toolkit/library/libxul-config.mk
 +++ b/toolkit/library/libxul-config.mk
-@@ -305,6 +305,10 @@ DEFINES += -DICON_DECODER
- COMPONENT_LIBS += imgicon
+@@ -302,6 +302,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
+ COMPONENT_LIBS += widget_android
  endif
  
 +ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
@@ -19,20 +19,23 @@ diff --git a/toolkit/library/libxul-config.mk b/toolkit/library/libxul-config.mk
  STATIC_LIBS += thebes ycbcr
  COMPONENT_LIBS += gkgfxthebes
  
-@@ -387,3 +391,7 @@ endif
- ifdef HAVE_CLOCK_MONOTONIC
+@@ -384,6 +388,10 @@ ifdef HAVE_CLOCK_MONOTONIC
  EXTRA_DSO_LDOPTS += $(REALTIME_LIBS)
  endif
-+
+ 
 +ifdef WEBOS
 +OS_LIBS += -lGLESv2 -lSDL
 +endif
++
+ ifeq (android,$(MOZ_WIDGET_TOOLKIT))
+ OS_LIBS += -lGLESv2
+ endif
 diff --git a/toolkit/library/nsStaticXULComponents.cpp b/toolkit/library/nsStaticXULComponents.cpp
 --- a/toolkit/library/nsStaticXULComponents.cpp
 +++ b/toolkit/library/nsStaticXULComponents.cpp
-@@ -84,7 +84,7 @@
- #elif defined(MOZ_WIDGET_QT)
- #  define WIDGET_MODULES MODULE(nsWidgetQtModule)
+@@ -82,7 +82,7 @@
+ #elif defined(MOZ_WIDGET_ANDROID)
+ #  define WIDGET_MODULES MODULE(nsWidgetAndroidModule)
  #elif defined(MOZ_WIDGET_WEBOS)
 -#  define WIDGET_MODULES
 +#  define WIDGET_MODULES MODULE(nsWidgetWebOSModule)
@@ -44,10 +47,10 @@ diff --git a/widget/src/Makefile.in b/widget/src/Makefile.in
 +++ b/widget/src/Makefile.in
 @@ -46,7 +46,7 @@ MODULE  = widget
  
- DIRS		= xpwidgets
+ DIRS		= shared xpwidgets
  
--ifneq (,$(filter beos os2 cocoa qt,$(MOZ_WIDGET_TOOLKIT)))
-+ifneq (,$(filter beos os2 cocoa qt webos,$(MOZ_WIDGET_TOOLKIT)))
+-ifneq (,$(filter beos os2 cocoa qt android,$(MOZ_WIDGET_TOOLKIT)))
++ifneq (,$(filter beos os2 cocoa qt android webos,$(MOZ_WIDGET_TOOLKIT)))
  DIRS		+= $(MOZ_WIDGET_TOOLKIT)
  endif
  
