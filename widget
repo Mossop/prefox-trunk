@@ -1,6 +1,6 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278528427 25200
+# Date 1278535422 25200
 # Node ID 5ab7ee57ac5501afbbadb071d2d05c21d8570836
 # Parent d02f64b6c2b0374855d1e1337cb85e32ddcfc109
 [palm] Add Web OS widget implementation
@@ -1438,7 +1438,7 @@ diff --git a/widget/src/webos/nsWidgetFactory.cpp b/widget/src/webos/nsWidgetFac
 new file mode 100644
 --- /dev/null
 +++ b/widget/src/webos/nsWidgetFactory.cpp
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,200 @@
 +/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -1541,86 +1541,79 @@ new file mode 100644
 +//NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeScrollbar)
 +//NS_GENERIC_FACTORY_CONSTRUCTOR(nsFilePicker)
 +
-+
-+static const nsModuleComponentInfo components[] =
-+{
-+    { "WebOS Toolkit",
-+      NS_TOOLKIT_CID,
-+      "@mozilla.org/widget/toolkit/webos;1",
-+      nsToolkitConstructor },
-+    { "WebOS AppShell",
-+      NS_APPSHELL_CID,
-+      "@mozilla.org/widget/appshell/webos;1",
-+      nsAppShellConstructor },
-+    { "WebOS nsWindow",
-+      NS_WINDOW_CID,
-+      "@mozilla.org/widgets/window/webos;1",
-+      nsWindowConstructor },
-+    { "WebOS Child nsWindow",
-+      NS_CHILD_CID,
-+      "@mozilla.org/widgets/child_window/webos;1",
-+      nsWindowConstructor }, /* Note: same as Window! */
-+    { "WebOS Look And Feel",
-+      NS_LOOKANDFEEL_CID,
-+      "@mozilla.org/widget/lookandfeel/webos;1",
-+      nsLookAndFeelConstructor },
++NS_DEFINE_NAMED_CID(NS_TOOLKIT_CID);
++NS_DEFINE_NAMED_CID(NS_APPSHELL_CID);
++NS_DEFINE_NAMED_CID(NS_WINDOW_CID);
++NS_DEFINE_NAMED_CID(NS_CHILD_CID);
++NS_DEFINE_NAMED_CID(NS_LOOKANDFEEL_CID);
 +#if 0
-+    { "WebOS Popup nsWindow",
-+      NS_POPUP_CID,
-+      "@mozilla.org/widgets/popup_window/webos;1",
-+      nsPopupWindowConstructor },
++NS_DEFINE_NAMED_CID(NS_POPUP_CID);
 +#endif
-+    { "WebOS Screen Manager",
-+      NS_SCREENMANAGER_CID,
-+      "@mozilla.org/gfx/screenmanager;1",
-+      nsScreenManagerConstructor },
++NS_DEFINE_NAMED_CID(NS_SCREENMANAGER_CID);
 +#if 0
-+    { "WebOS Idle Service",
-+      NS_IDLE_SERVICE_CID,
-+      "@mozilla.org/widget/idleservice;1",
-+      nsIdleServiceConstructor },
-+    { "Accelerometer",
-+      NS_ACCELEROMETER_CID,
-+      NS_ACCELEROMETER_CONTRACTID,
-+      nsAccelerometerConstructor },
-+    { "Transferrable",
-+      NS_TRANSFERABLE_CID,
-+      "@mozilla.org/widget/transferable;1",
-+      nsTransferableConstructor },
-+    { "WebOS Clipboard",
-+      NS_CLIPBOARD_CID,
-+      "@mozilla.org/widget/clipboard;1",
-+      nsClipboardConstructor },
-+    { "Clipboard Helper",
-+      NS_CLIPBOARDHELPER_CID,
-+      "@mozilla.org/widget/clipboardhelper;1",
-+      nsClipboardHelperConstructor },
-+    { "WebOS Drag Service",
-+      NS_DRAGSERVICE_CID,
-+      "@mozilla.org/widget/dragservice;1",
-+      nsDragServiceConstructor },
-+    { "WebOS Bidi Keyboard",
-+      NS_BIDIKEYBOARD_CID,
-+      "@mozilla.org/widget/bidikeyboard;1",
-+      nsBidiKeyboardConstructor },
-+    { "WebOS Sound",
-+      NS_SOUND_CID,
-+      "@mozilla.org/sound;1",
-+      nsSoundConstructor },
-+    { "Native Theme Renderer",
-+      NS_THEMERENDERER_CID,
-+      "@mozilla.org/chrome/chrome-native-theme;1",
-+      nsNativeThemeConstructor },
-+    { "WebOS File Picker",
-+      NS_FILEPICKER_CID,
-+      "@mozilla.org/filepicker;1",
-+      nsFilePickerConstructor }
-+    { "HTML Format Converter",
-+      NS_HTMLFORMATCONVERTER_CID,
-+      "@mozilla.org/widget/htmlformatconverter/webos;1",
-+      nsHTMLFormatConverterConstructor },
++NS_DEFINE_NAMED_CID(NS_IDLE_SERVICE_CID);
++NS_DEFINE_NAMED_CID(NS_ACCELEROMETER_CID);
++NS_DEFINE_NAMED_CID(NS_TRANSFERABLE_CID);
++NS_DEFINE_NAMED_CID(NS_CLIPBOARD_CID);
++NS_DEFINE_NAMED_CID(NS_CLIPBOARDHELPER_CID);
++NS_DEFINE_NAMED_CID(NS_DRAGSERVICE_CID);
++NS_DEFINE_NAMED_CID(NS_BIDIKEYBOARD_CID);
++NS_DEFINE_NAMED_CID(NS_SOUND_CID);
++NS_DEFINE_NAMED_CID(NS_THEMERENDERER_CID);
++NS_DEFINE_NAMED_CID(NS_FILEPICKER_CID);
++NS_DEFINE_NAMED_CID(NS_HTMLFORMATCONVERTER_CID);
 +#endif
 +
++static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
++    { &NS_TOOLKIT_CID, false, NULL, nsToolkitConstructor },
++    { &NS_APPSHELL_CID, false, NULL, nsAppShellConstructor },
++    { &NS_WINDOW_CID, false, NULL, nsWindowConstructor },
++    { &NS_CHILD_CID, false, NULL, nsWindowConstructor }, /* Note: same as Window! */
++    { &NS_LOOKANDFEEL_CID, false, NULL, nsLookAndFeelConstructor },
++#if 0
++    { &NS_POPUP_CID, false, NULL, nsPopupWindowConstructor },
++#endif
++    { &NS_SCREENMANAGER_CID, false, NULL, nsScreenManagerConstructor },
++#if 0
++    { &NS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceConstructor },
++    { &NS_ACCELEROMETER_CID, false, NULL, nsAccelerometerConstructor },
++    { &NS_TRANSFERABLE_CID, false, NULL, nsTransferableConstructor },
++    { &NS_CLIPBOARD_CID, false, NULL, nsClipboardConstructor },
++    { &NS_CLIPBOARDHELPER_CID, false, NULL, nsClipboardHelperConstructor },
++    { &NS_DRAGSERVICE_CID, false, NULL, nsDragServiceConstructor },
++    { &NS_BIDIKEYBOARD_CID, false, NULL, nsBidiKeyboardConstructor },
++    { &NS_SOUND_CID, false, NULL, nsSoundConstructor },
++    { &NS_THEMERENDERER_CID, false, NULL, nsNativeThemeConstructor },
++    { &NS_FILEPICKER_CID, false, NULL, nsFilePickerConstructor }
++    { &NS_HTMLFORMATCONVERTER_CID, false, NULL, nsHTMLFormatConverterConstructor },
++#endif
++    { NULL }
++};
++
++static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
++    { "@mozilla.org/widget/toolkit/webos;1", &NS_TOOLKIT_CID },
++    { "@mozilla.org/widget/appshell/webos;1", &NS_APPSHELL_CID },
++    { "@mozilla.org/widgets/window/webos;1", &NS_WINDOW_CID },
++    { "@mozilla.org/widgets/child_window/webos;1", &NS_CHILD_CID },
++    { "@mozilla.org/widget/lookandfeel/webos;1", &NS_LOOKANDFEEL_CID },
++#if 0
++    { "@mozilla.org/widgets/popup_window/webos;1", &NS_POPUP_CID },
++#endif
++    { "@mozilla.org/gfx/screenmanager;1", &NS_SCREENMANAGER_CID },
++#if 0
++    { "@mozilla.org/widget/idleservice;1", &NS_IDLE_SERVICE_CID },
++    { NS_ACCELEROMETER_CONTRACTID, &NS_ACCELEROMETER_CID },
++    { "@mozilla.org/widget/transferable;1", &NS_TRANSFERABLE_CID },
++    { "@mozilla.org/widget/clipboard;1", &NS_CLIPBOARD_CID },
++    { "@mozilla.org/widget/clipboardhelper;1", &NS_CLIPBOARDHELPER_CID },
++    { "@mozilla.org/widget/dragservice;1", &NS_DRAGSERVICE_CID },
++    { "@mozilla.org/widget/bidikeyboard;1", &NS_BIDIKEYBOARD_CID },
++    { "@mozilla.org/sound;1", &NS_SOUND_CID },
++    { "@mozilla.org/chrome/chrome-native-theme;1", &NS_THEMERENDERER_CID },
++    { "@mozilla.org/filepicker;1", &NS_FILEPICKER_CID }
++    { "@mozilla.org/widget/htmlformatconverter/webos;1", &NS_HTMLFORMATCONVERTER_CID },
++#endif
++    { NULL }
 +};
 +
 +static void
@@ -1635,11 +1628,17 @@ new file mode 100644
 +    nsAppShellShutdown(aSelf);
 +}
 +
-+NS_IMPL_NSGETMODULE_WITH_CTOR_DTOR(nsWidgetWebOSModule,
-+                                   components,
-+                                   nsAppShellInit,
-+                                   nsWidgetWebOSModuleDtor)
++static const mozilla::Module kWidgetModule = {
++    mozilla::Module::kVersion,
++    kWidgetCIDs,
++    kWidgetContracts,
++    NULL,
++    NULL,
++    nsAppShellInit,
++    nsWidgetWebOSModuleDtor
++};
 +
++NSMODULE_DEFN(nsWidgetWebOSModule) = &kWidgetModule;
 diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
 new file mode 100644
 --- /dev/null

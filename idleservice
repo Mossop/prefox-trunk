@@ -1,14 +1,14 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271396083 25200
+# Date 1278535468 25200
 # Node ID 411ee064b3cb7c40df0bef3fe8bce3e3778fe794
-# Parent  4855ce897bf3effec178fa6ede9499e4e95bd51f
+# Parent 279ecfb50808a3c465d094471cc110b5393c0c22
 [palm] Add an idle service
 
 diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
 --- a/widget/src/webos/Makefile.in
 +++ b/widget/src/webos/Makefile.in
-@@ -59,6 +59,7 @@ CPPSRCS	= \
+@@ -60,6 +60,7 @@ CPPSRCS	= \
  	nsWindow.cpp \
  	nsLookAndFeel.cpp \
  	nsScreenManager.cpp \
@@ -16,7 +16,7 @@ diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
  	$(NULL)
  
  NOT_THERE_YET_CPPSRCS = \
-@@ -70,7 +71,6 @@ NOT_THERE_YET_CPPSRCS = \
+@@ -71,7 +72,6 @@ NOT_THERE_YET_CPPSRCS = \
  	mozqwidget.cpp \
  	nsSound.cpp \
  	nsFilePicker.cpp \
@@ -188,20 +188,16 @@ diff --git a/widget/src/webos/nsWidgetFactory.cpp b/widget/src/webos/nsWidgetFac
  //NS_GENERIC_FACTORY_CONSTRUCTOR(nsSound)
  //NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeTheme)
  //NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeScrollbar)
-@@ -133,11 +133,11 @@ static const nsModuleComponentInfo compo
-       NS_SCREENMANAGER_CID,
-       "@mozilla.org/gfx/screenmanager;1",
-       nsScreenManagerConstructor },
--#if 0
-     { "WebOS Idle Service",
-       NS_IDLE_SERVICE_CID,
-       "@mozilla.org/widget/idleservice;1",
--      nsIdleServiceConstructor },
-+      nsIdleServiceWebOSConstructor },
-+#if 0
-     { "Accelerometer",
-       NS_ACCELEROMETER_CID,
-       NS_ACCELEROMETER_CONTRACTID,
+@@ -133,8 +133,8 @@ static const mozilla::Module::CIDEntry k
+     { &NS_POPUP_CID, false, NULL, nsPopupWindowConstructor },
+ #endif
+     { &NS_SCREENMANAGER_CID, false, NULL, nsScreenManagerConstructor },
++    { &NS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceWebOSConstructor },
+ #if 0
+-    { &NS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceConstructor },
+     { &NS_ACCELEROMETER_CID, false, NULL, nsAccelerometerConstructor },
+     { &NS_TRANSFERABLE_CID, false, NULL, nsTransferableConstructor },
+     { &NS_CLIPBOARD_CID, false, NULL, nsClipboardConstructor },
 diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
 --- a/widget/src/webos/nsWindow.cpp
 +++ b/widget/src/webos/nsWindow.cpp
