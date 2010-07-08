@@ -5,6 +5,7 @@ buildconfig
 profile
 gfx
 widget
+accelerometer
 dependency
 flags
 windows

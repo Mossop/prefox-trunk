@@ -1,10 +1,23 @@
 # HG changeset patch
-# Parent bbdc483d417020e291a83d66f32a6d307e8e5187
+# Parent a05a77153d02a4b4b68e11c75c775985ef24d294
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278526469 25200
+# Date 1278542687 25200
 
 [palm] Fix disabling WebGL and Media elements
 
+diff --git a/content/base/src/nsContentUtils.cpp b/content/base/src/nsContentUtils.cpp
+--- a/content/base/src/nsContentUtils.cpp
++++ b/content/base/src/nsContentUtils.cpp
+@@ -206,7 +206,9 @@ static NS_DEFINE_CID(kXTFServiceCID, NS_
+ #include "nsChannelPolicy.h"
+ #include "nsIContentSecurityPolicy.h"
+ #include "nsContentDLF.h"
++#ifdef MOZ_MEDIA
+ #include "nsHTMLMediaElement.h"
++#endif
+ 
+ using namespace mozilla::dom;
+ 
 diff --git a/dom/base/nsDOMClassInfo.cpp b/dom/base/nsDOMClassInfo.cpp
 --- a/dom/base/nsDOMClassInfo.cpp
 +++ b/dom/base/nsDOMClassInfo.cpp
@@ -55,7 +68,7 @@ diff --git a/dom/base/nsDOMClassInfoClasses.h b/dom/base/nsDOMClassInfoClasses.h
  DOMCI_CLASS(WebGLFramebuffer)
  DOMCI_CLASS(WebGLRenderbuffer)
  DOMCI_CLASS(WebGLUniformLocation)
-++#endif
++#endif
  
  // WebGL Buffers
  DOMCI_CLASS(PaintRequest)

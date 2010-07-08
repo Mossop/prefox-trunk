@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278535422 25200
+# Date 1278552835 25200
 # Node ID 5ab7ee57ac5501afbbadb071d2d05c21d8570836
-# Parent d02f64b6c2b0374855d1e1337cb85e32ddcfc109
+# Parent be9942b2fa1549c54b4b85df53d5fd1cab078260
 [palm] Add Web OS widget implementation
 
 diff --git a/toolkit/library/libxul-config.mk b/toolkit/library/libxul-config.mk
@@ -1438,7 +1438,7 @@ diff --git a/widget/src/webos/nsWidgetFactory.cpp b/widget/src/webos/nsWidgetFac
 new file mode 100644
 --- /dev/null
 +++ b/widget/src/webos/nsWidgetFactory.cpp
-@@ -0,0 +1,200 @@
+@@ -0,0 +1,105 @@
 +/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -1478,8 +1478,7 @@ new file mode 100644
 + *
 + * ***** END LICENSE BLOCK ***** */
 +
-+#include "nsIGenericFactory.h"
-+#include "nsIModule.h"
++#include "mozilla/ModuleUtils.h"
 +
 +#include "nsCOMPtr.h"
 +#include "nsWidgetsCID.h"
@@ -1487,145 +1486,51 @@ new file mode 100644
 +#include "nsToolkit.h"
 +
 +#include "nsWindow.h"
-+//#include "nsHTMLFormatConverter.h"
-+//#include "nsTransferable.h"
 +#include "nsLookAndFeel.h"
 +#include "nsAppShellSingleton.h"
 +#include "nsScreenManager.h"
 +
-+// #include "nsIComponentRegistrar.h"
-+// #include "nsComponentManagerUtils.h"
-+// #include "nsAutoPtr.h"
-+// 
-+
-+
-+//#include "nsFilePicker.h"
-+//#include "nsClipboard.h"
-+//#include "nsClipboardHelper.h"
-+//#include "nsAccelerometer.h"
-+//#include "nsIdleService.h"
-+//#include "nsDragService.h"
-+//#include "nsSound.h"
-+//#include "nsBidiKeyboard.h"
-+//#include "nsNativeTheme.h"
-+// #include "nsScrollbar.h"
-+// 
-+// #include "nsGUIEvent.h"
-+// #include "nsQtEventDispatcher.h"
-+// #include "nsIRenderingContext.h"
-+// #include "nsIServiceManager.h"
-+// #include "nsGfxCIID.h"
-+// #include "nsIPrefBranch.h"
-+// #include "nsIPrefService.h"
-+// 
-+
 +NS_GENERIC_FACTORY_CONSTRUCTOR(nsToolkit)
-+
 +NS_GENERIC_FACTORY_CONSTRUCTOR(nsWindow)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsChildWindow)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsPopupWindow)
-+
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsHTMLFormatConverter)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsTransferable)
 +NS_GENERIC_FACTORY_CONSTRUCTOR(nsLookAndFeel)
 +NS_GENERIC_FACTORY_CONSTRUCTOR(nsScreenManager)
-+
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboard)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboardHelper)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsDragService)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsBidiKeyboard)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsAccelerometer)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsIdleService)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsSound)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeTheme)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeScrollbar)
-+//NS_GENERIC_FACTORY_CONSTRUCTOR(nsFilePicker)
 +
 +NS_DEFINE_NAMED_CID(NS_TOOLKIT_CID);
 +NS_DEFINE_NAMED_CID(NS_APPSHELL_CID);
 +NS_DEFINE_NAMED_CID(NS_WINDOW_CID);
 +NS_DEFINE_NAMED_CID(NS_CHILD_CID);
 +NS_DEFINE_NAMED_CID(NS_LOOKANDFEEL_CID);
-+#if 0
-+NS_DEFINE_NAMED_CID(NS_POPUP_CID);
-+#endif
 +NS_DEFINE_NAMED_CID(NS_SCREENMANAGER_CID);
-+#if 0
-+NS_DEFINE_NAMED_CID(NS_IDLE_SERVICE_CID);
-+NS_DEFINE_NAMED_CID(NS_ACCELEROMETER_CID);
-+NS_DEFINE_NAMED_CID(NS_TRANSFERABLE_CID);
-+NS_DEFINE_NAMED_CID(NS_CLIPBOARD_CID);
-+NS_DEFINE_NAMED_CID(NS_CLIPBOARDHELPER_CID);
-+NS_DEFINE_NAMED_CID(NS_DRAGSERVICE_CID);
-+NS_DEFINE_NAMED_CID(NS_BIDIKEYBOARD_CID);
-+NS_DEFINE_NAMED_CID(NS_SOUND_CID);
-+NS_DEFINE_NAMED_CID(NS_THEMERENDERER_CID);
-+NS_DEFINE_NAMED_CID(NS_FILEPICKER_CID);
-+NS_DEFINE_NAMED_CID(NS_HTMLFORMATCONVERTER_CID);
-+#endif
 +
 +static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
-+    { &NS_TOOLKIT_CID, false, NULL, nsToolkitConstructor },
-+    { &NS_APPSHELL_CID, false, NULL, nsAppShellConstructor },
-+    { &NS_WINDOW_CID, false, NULL, nsWindowConstructor },
-+    { &NS_CHILD_CID, false, NULL, nsWindowConstructor }, /* Note: same as Window! */
-+    { &NS_LOOKANDFEEL_CID, false, NULL, nsLookAndFeelConstructor },
-+#if 0
-+    { &NS_POPUP_CID, false, NULL, nsPopupWindowConstructor },
-+#endif
-+    { &NS_SCREENMANAGER_CID, false, NULL, nsScreenManagerConstructor },
-+#if 0
-+    { &NS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceConstructor },
-+    { &NS_ACCELEROMETER_CID, false, NULL, nsAccelerometerConstructor },
-+    { &NS_TRANSFERABLE_CID, false, NULL, nsTransferableConstructor },
-+    { &NS_CLIPBOARD_CID, false, NULL, nsClipboardConstructor },
-+    { &NS_CLIPBOARDHELPER_CID, false, NULL, nsClipboardHelperConstructor },
-+    { &NS_DRAGSERVICE_CID, false, NULL, nsDragServiceConstructor },
-+    { &NS_BIDIKEYBOARD_CID, false, NULL, nsBidiKeyboardConstructor },
-+    { &NS_SOUND_CID, false, NULL, nsSoundConstructor },
-+    { &NS_THEMERENDERER_CID, false, NULL, nsNativeThemeConstructor },
-+    { &NS_FILEPICKER_CID, false, NULL, nsFilePickerConstructor }
-+    { &NS_HTMLFORMATCONVERTER_CID, false, NULL, nsHTMLFormatConverterConstructor },
-+#endif
++    { &kNS_TOOLKIT_CID, false, NULL, nsToolkitConstructor },
++    { &kNS_APPSHELL_CID, false, NULL, nsAppShellConstructor },
++    { &kNS_WINDOW_CID, false, NULL, nsWindowConstructor },
++    { &kNS_CHILD_CID, false, NULL, nsWindowConstructor }, /* Note: same as Window! */
++    { &kNS_LOOKANDFEEL_CID, false, NULL, nsLookAndFeelConstructor },
++    { &kNS_SCREENMANAGER_CID, false, NULL, nsScreenManagerConstructor },
 +    { NULL }
 +};
 +
 +static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
-+    { "@mozilla.org/widget/toolkit/webos;1", &NS_TOOLKIT_CID },
-+    { "@mozilla.org/widget/appshell/webos;1", &NS_APPSHELL_CID },
-+    { "@mozilla.org/widgets/window/webos;1", &NS_WINDOW_CID },
-+    { "@mozilla.org/widgets/child_window/webos;1", &NS_CHILD_CID },
-+    { "@mozilla.org/widget/lookandfeel/webos;1", &NS_LOOKANDFEEL_CID },
-+#if 0
-+    { "@mozilla.org/widgets/popup_window/webos;1", &NS_POPUP_CID },
-+#endif
-+    { "@mozilla.org/gfx/screenmanager;1", &NS_SCREENMANAGER_CID },
-+#if 0
-+    { "@mozilla.org/widget/idleservice;1", &NS_IDLE_SERVICE_CID },
-+    { NS_ACCELEROMETER_CONTRACTID, &NS_ACCELEROMETER_CID },
-+    { "@mozilla.org/widget/transferable;1", &NS_TRANSFERABLE_CID },
-+    { "@mozilla.org/widget/clipboard;1", &NS_CLIPBOARD_CID },
-+    { "@mozilla.org/widget/clipboardhelper;1", &NS_CLIPBOARDHELPER_CID },
-+    { "@mozilla.org/widget/dragservice;1", &NS_DRAGSERVICE_CID },
-+    { "@mozilla.org/widget/bidikeyboard;1", &NS_BIDIKEYBOARD_CID },
-+    { "@mozilla.org/sound;1", &NS_SOUND_CID },
-+    { "@mozilla.org/chrome/chrome-native-theme;1", &NS_THEMERENDERER_CID },
-+    { "@mozilla.org/filepicker;1", &NS_FILEPICKER_CID }
-+    { "@mozilla.org/widget/htmlformatconverter/webos;1", &NS_HTMLFORMATCONVERTER_CID },
-+#endif
++    { "@mozilla.org/widget/toolkit/webos;1", &kNS_TOOLKIT_CID },
++    { "@mozilla.org/widget/appshell/webos;1", &kNS_APPSHELL_CID },
++    { "@mozilla.org/widgets/window/webos;1", &kNS_WINDOW_CID },
++    { "@mozilla.org/widgets/child_window/webos;1", &kNS_CHILD_CID },
++    { "@mozilla.org/widget/lookandfeel/webos;1", &kNS_LOOKANDFEEL_CID },
++    { "@mozilla.org/gfx/screenmanager;1", &kNS_SCREENMANAGER_CID },
 +    { NULL }
 +};
 +
 +static void
-+nsWidgetWebOSModuleDtor(nsIModule *aSelf)
++nsWidgetWebOSModuleDtor()
 +{
-+//    nsSound::Shutdown();
 +    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
 +        printf("SDL Quit\n");
 +        SDL_Quit();
 +    }
 +
-+    nsAppShellShutdown(aSelf);
++    nsAppShellShutdown();
 +}
 +
 +static const mozilla::Module kWidgetModule = {

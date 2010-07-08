@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278535468 25200
+# Date 1278552764 25200
 # Node ID 411ee064b3cb7c40df0bef3fe8bce3e3778fe794
-# Parent 279ecfb50808a3c465d094471cc110b5393c0c22
+# Parent b725af3310ea6b604ab904a29d6f9bd8924983ec
 [palm] Add an idle service
 
 diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
@@ -157,47 +157,44 @@ new file mode 100644
 diff --git a/widget/src/webos/nsWidgetFactory.cpp b/widget/src/webos/nsWidgetFactory.cpp
 --- a/widget/src/webos/nsWidgetFactory.cpp
 +++ b/widget/src/webos/nsWidgetFactory.cpp
-@@ -51,6 +51,7 @@
+@@ -48,11 +48,13 @@
  #include "nsLookAndFeel.h"
  #include "nsAppShellSingleton.h"
  #include "nsScreenManager.h"
 +#include "nsIdleServiceWebOS.h"
  
- // #include "nsIComponentRegistrar.h"
- // #include "nsComponentManagerUtils.h"
-@@ -62,7 +63,6 @@
- //#include "nsClipboard.h"
- //#include "nsClipboardHelper.h"
- //#include "nsAccelerometer.h"
--//#include "nsIdleService.h"
- //#include "nsDragService.h"
- //#include "nsSound.h"
- //#include "nsBidiKeyboard.h"
-@@ -88,13 +88,13 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(nsWindow)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsTransferable)
+ NS_GENERIC_FACTORY_CONSTRUCTOR(nsToolkit)
+ NS_GENERIC_FACTORY_CONSTRUCTOR(nsWindow)
  NS_GENERIC_FACTORY_CONSTRUCTOR(nsLookAndFeel)
  NS_GENERIC_FACTORY_CONSTRUCTOR(nsScreenManager)
 +NS_GENERIC_FACTORY_CONSTRUCTOR(nsIdleServiceWebOS)
  
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboard)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsClipboardHelper)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsDragService)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsBidiKeyboard)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsAccelerometer)
--//NS_GENERIC_FACTORY_CONSTRUCTOR(nsIdleService)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsSound)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeTheme)
- //NS_GENERIC_FACTORY_CONSTRUCTOR(nsNativeScrollbar)
-@@ -133,8 +133,8 @@ static const mozilla::Module::CIDEntry k
-     { &NS_POPUP_CID, false, NULL, nsPopupWindowConstructor },
- #endif
-     { &NS_SCREENMANAGER_CID, false, NULL, nsScreenManagerConstructor },
-+    { &NS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceWebOSConstructor },
- #if 0
--    { &NS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceConstructor },
-     { &NS_ACCELEROMETER_CID, false, NULL, nsAccelerometerConstructor },
-     { &NS_TRANSFERABLE_CID, false, NULL, nsTransferableConstructor },
-     { &NS_CLIPBOARD_CID, false, NULL, nsClipboardConstructor },
+ NS_DEFINE_NAMED_CID(NS_TOOLKIT_CID);
+ NS_DEFINE_NAMED_CID(NS_APPSHELL_CID);
+@@ -60,6 +62,7 @@ NS_DEFINE_NAMED_CID(NS_WINDOW_CID);
+ NS_DEFINE_NAMED_CID(NS_CHILD_CID);
+ NS_DEFINE_NAMED_CID(NS_LOOKANDFEEL_CID);
+ NS_DEFINE_NAMED_CID(NS_SCREENMANAGER_CID);
++NS_DEFINE_NAMED_CID(NS_IDLE_SERVICE_CID);
+ 
+ static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
+     { &kNS_TOOLKIT_CID, false, NULL, nsToolkitConstructor },
+@@ -68,6 +71,7 @@ static const mozilla::Module::CIDEntry k
+     { &kNS_CHILD_CID, false, NULL, nsWindowConstructor }, /* Note: same as Window! */
+     { &kNS_LOOKANDFEEL_CID, false, NULL, nsLookAndFeelConstructor },
+     { &kNS_SCREENMANAGER_CID, false, NULL, nsScreenManagerConstructor },
++    { &kNS_IDLE_SERVICE_CID, false, NULL, nsIdleServiceWebOSConstructor },
+     { NULL }
+ };
+ 
+@@ -78,6 +82,7 @@ static const mozilla::Module::ContractID
+     { "@mozilla.org/widgets/child_window/webos;1", &kNS_CHILD_CID },
+     { "@mozilla.org/widget/lookandfeel/webos;1", &kNS_LOOKANDFEEL_CID },
+     { "@mozilla.org/gfx/screenmanager;1", &kNS_SCREENMANAGER_CID },
++    { "@mozilla.org/widget/idleservice;1", &kNS_IDLE_SERVICE_CID },
+     { NULL }
+ };
+ 
 diff --git a/widget/src/webos/nsWindow.cpp b/widget/src/webos/nsWindow.cpp
 --- a/widget/src/webos/nsWindow.cpp
 +++ b/widget/src/webos/nsWindow.cpp

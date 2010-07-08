@@ -1,24 +1,26 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271307724 25200
+# Date 1278553954 25200
 # Node ID b3a902e15ec0c36b0a448ec5b228db05915bc10e
-# Parent  72fc7a4917b8586882b625b8faac037a1bde1cfa
+# Parent 22451f2f7321e2a3b6aff4ead0bbb9bc152e36b4
 [palm] Better event handling and device setup
 
 diff --git a/toolkit/library/libxul-config.mk b/toolkit/library/libxul-config.mk
 --- a/toolkit/library/libxul-config.mk
 +++ b/toolkit/library/libxul-config.mk
-@@ -391,5 +391,5 @@ EXTRA_DSO_LDOPTS += $(REALTIME_LIBS)
+@@ -389,7 +389,7 @@ EXTRA_DSO_LDOPTS += $(REALTIME_LIBS)
  endif
  
  ifdef WEBOS
 -OS_LIBS += -lGLESv2 -lSDL
 +OS_LIBS += -lGLESv2 -lSDL -lpdl
  endif
+ 
+ ifeq (android,$(MOZ_WIDGET_TOOLKIT))
 diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
 --- a/widget/src/webos/Makefile.in
 +++ b/widget/src/webos/Makefile.in
-@@ -84,6 +84,7 @@ EXTRA_DSO_LDOPTS = \
+@@ -85,6 +85,7 @@ EXTRA_DSO_LDOPTS = \
  	$(QCMS_LIBS) \
  	-lGLESv2 \
  	-lSDL \
@@ -29,16 +31,15 @@ diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
 diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
 --- a/widget/src/webos/nsAppShell.cpp
 +++ b/widget/src/webos/nsAppShell.cpp
-@@ -44,8 +44,6 @@
- 
+@@ -45,7 +45,6 @@
  #include <pthread.h>
  
+ #include "nsAccelerometerSystem.h"
 -#include "SDL/SDL.h"
--
+ 
  using namespace mozilla;
  
- PRLogModuleInfo* gAppShellLog = nsnull;
-@@ -94,6 +92,37 @@ nsAppShell::ScheduleRedraw()
+@@ -97,6 +96,37 @@ nsAppShell::ScheduleRedraw()
  }
  
  PRBool
@@ -76,7 +77,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
  nsAppShell::ProcessNextNativeEvent(PRBool mayWait)
  {
      PR_LOG(gAppShellLog, PR_LOG_DEBUG, ("ProcessNextNativeEvent(%d)", mayWait));
-@@ -101,25 +130,21 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
+@@ -104,25 +134,21 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
      SDL_Event event;
      int count = SDL_PollEvent(&event);
  

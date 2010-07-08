@@ -1,21 +1,10 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271291424 25200
+# Date 1278553930 25200
 # Node ID 128cf2588baaaa616c52aac565054db9640466ec
-# Parent  ba3f2002dbf22292644b328dba05b8e802016e6a
+# Parent 8cd60e69fc715eb271753136090ffee8bf3ebc0f
 [palm] Switch to PR logging throughout
 
-diff --git a/gfx/thebes/gfxWebOSPlatform.h b/gfx/thebes/gfxWebOSPlatform.h
---- a/gfx/thebes/gfxWebOSPlatform.h
-+++ b/gfx/thebes/gfxWebOSPlatform.h
-@@ -88,6 +88,7 @@ public:
-     FT_Library GetFTLibrary();
- 
- protected:
-+    void Shutdown();
-     void AppendFacesFromFontFile(const char *aFileName);
- 
-     typedef nsDataHashtable<nsStringHashKey, nsRefPtr<FontFamily> > FontTable;
 diff --git a/gfx/thebes/gfxWebOSPlatform.cpp b/gfx/thebes/gfxWebOSPlatform.cpp
 --- a/gfx/thebes/gfxWebOSPlatform.cpp
 +++ b/gfx/thebes/gfxWebOSPlatform.cpp
@@ -64,6 +53,17 @@ diff --git a/gfx/thebes/gfxWebOSPlatform.cpp b/gfx/thebes/gfxWebOSPlatform.cpp
  already_AddRefed<gfxASurface>
  gfxWebOSPlatform::CreateOffscreenSurface(const gfxIntSize& size,
                                        gfxASurface::gfxImageFormat imageFormat)
+diff --git a/gfx/thebes/gfxWebOSPlatform.h b/gfx/thebes/gfxWebOSPlatform.h
+--- a/gfx/thebes/gfxWebOSPlatform.h
++++ b/gfx/thebes/gfxWebOSPlatform.h
+@@ -88,6 +88,7 @@ public:
+     FT_Library GetFTLibrary();
+ 
+ protected:
++    void Shutdown();
+     void AppendFacesFromFontFile(const char *aFileName);
+ 
+     typedef nsDataHashtable<nsStringHashKey, nsRefPtr<FontFamily> > FontTable;
 diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
 --- a/widget/src/webos/nsAppShell.cpp
 +++ b/widget/src/webos/nsAppShell.cpp
@@ -76,14 +76,16 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
  #include "prenv.h"
  
  #include <pthread.h>
-@@ -48,27 +48,31 @@
+@@ -49,7 +49,7 @@
  
  using namespace mozilla;
  
 -#define EVLOG(args...) printf(args); printf("\n")
 +PRLogModuleInfo* gAppShellLog = nsnull;
  
- nsAppShell *nsAppShell::gAppShell = nsnull;
+ nsAccelerometerSystem *gAccel = nsnull;
+ 
+@@ -57,21 +57,25 @@ nsAppShell *nsAppShell::gAppShell = nsnu
  
  nsAppShell::nsAppShell()
  {
@@ -113,7 +115,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
  
      return nsBaseAppShell::Init();
  }
-@@ -81,6 +85,8 @@ nsAppShell::ScheduleNativeEventCallback(
+@@ -84,6 +88,8 @@ nsAppShell::ScheduleNativeEventCallback(
  void
  nsAppShell::ScheduleRedraw()
  {
@@ -122,7 +124,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
      SDL_Event sdlevt;
      sdlevt.type = SDL_USEREVENT;
      sdlevt.user.code = WEBOS_EVENT_REDRAW;
-@@ -90,29 +96,36 @@ nsAppShell::ScheduleRedraw()
+@@ -93,29 +99,36 @@ nsAppShell::ScheduleRedraw()
  PRBool
  nsAppShell::ProcessNextNativeEvent(PRBool mayWait)
  {

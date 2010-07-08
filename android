@@ -1,7 +1,7 @@
 # HG changeset patch
 # Parent 4b55be4cce6e6ad335d624b5b49d13b36aa945ed
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278526141 25200
+# Date 1278539958 25200
 
 [palm] Miscellaneous build fixes from the android2 branch
 
@@ -97,3 +97,22 @@ diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.h b/uriloader/exthandler/u
  
  protected:
    NS_IMETHOD GetHasDefaultHandler(PRBool *_retval);
+diff --git a/xpcom/typelib/xpidl/Makefile.in b/xpcom/typelib/xpidl/Makefile.in
+--- a/xpcom/typelib/xpidl/Makefile.in
++++ b/xpcom/typelib/xpidl/Makefile.in
+@@ -78,6 +78,7 @@ BUILD_TARGET = 1
+ 
+ endif # CROSS_COMPILE
+ 
++ifndef CROSS_COMPILE
+ ifdef BUILD_TARGET
+ PROGRAM		= xpidl$(BIN_SUFFIX)
+ CSRCS 		= $(XPIDL_CSRCS)
+@@ -85,6 +86,7 @@ SDK_BINARY  	= $(PROGRAM)
+ CFLAGS         += LIBIDL_CFLAGS
+ LIBS           += LIBIDL_LIBS
+ endif
++endif
+ 
+ USE_STATIC_LIBS = 1
+ 

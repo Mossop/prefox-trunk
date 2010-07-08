@@ -1,0 +1,254 @@
+# HG changeset patch
+# Parent 4b45d961581327631f4a6d217d07cec10139175b
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1278567023 25200
+
+[palm] Add base for accelerometer support
+
+diff --git a/dom/system/Makefile.in b/dom/system/Makefile.in
+--- a/dom/system/Makefile.in
++++ b/dom/system/Makefile.in
+@@ -61,6 +61,10 @@ ifneq (,$(filter android,$(MOZ_WIDGET_TO
+ DIRS = android
+ endif
+ 
++ifneq (,$(filter webos,$(MOZ_WIDGET_TOOLKIT)))
++DIRS = webos
++endif
++
+ CPPSRCS     = \
+     nsAccelerometer.cpp \
+     $(NULL)
+diff --git a/dom/system/webos/Makefile.in b/dom/system/webos/Makefile.in
+new file mode 100644
+--- /dev/null
++++ b/dom/system/webos/Makefile.in
+@@ -0,0 +1,59 @@
++# ***** BEGIN LICENSE BLOCK *****
++# Version: MPL 1.1/GPL 2.0/LGPL 2.1
++#
++# The contents of this file are subject to the Mozilla Public License Version
++# 1.1 (the "License"); you may not use this file except in compliance with
++# the License. You may obtain a copy of the License at
++# http://www.mozilla.org/MPL/
++#
++# Software distributed under the License is distributed on an "AS IS" basis,
++# WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++# for the specific language governing rights and limitations under the
++# License.
++#
++# The Original Code is mozilla.org build system.
++#
++# The Initial Developer of the Original Code is Mozilla Foundation
++# Portions created by the Initial Developer are Copyright (C) 2010
++# the Initial Developer. All Rights Reserved.
++#
++# Contributor(s):
++#  Mike Kristoffersen <mikek@mikek.dk>
++#
++# Alternatively, the contents of this file may be used under the terms of
++# either the GNU General Public License Version 2 or later (the "GPL"), or
++# the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++# in which case the provisions of the GPL or the LGPL are applicable instead
++# of those above. If you wish to allow use of your version of this file only
++# under the terms of either the GPL or the LGPL, and not to allow others to
++# use your version of this file under the terms of the MPL, indicate your
++# decision by deleting the provisions above and replace them with the notice
++# and other provisions required by the GPL or the LGPL. If you do not delete
++# the provisions above, a recipient may use your version of this file under
++# the terms of any one of the MPL, the GPL or the LGPL.
++#
++# ***** END LICENSE BLOCK *****
++
++DEPTH       = ../../..
++topsrcdir   = @top_srcdir@
++srcdir      = @srcdir@
++VPATH       = @srcdir@
++
++include $(DEPTH)/config/autoconf.mk
++
++MODULE      = dom
++LIBRARY_NAME    = domsystemwebos_s
++
++# we don't want the shared lib, but we want to force the creation of a static lib.
++LIBXUL_LIBRARY   = 1
++FORCE_STATIC_LIB = 1
++EXPORT_LIBRARY = 1
++
++include $(topsrcdir)/config/config.mk
++
++CPPSRCS     = \
++        nsAccelerometerSystem.cpp \
++        $(NULL)
++
++include $(topsrcdir)/config/rules.mk
++
+diff --git a/dom/system/webos/nsAccelerometerSystem.cpp b/dom/system/webos/nsAccelerometerSystem.cpp
+new file mode 100644
+--- /dev/null
++++ b/dom/system/webos/nsAccelerometerSystem.cpp
+@@ -0,0 +1,58 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#include "nsAccelerometerSystem.h"
++
++using namespace mozilla;
++
++extern nsAccelerometerSystem *gAccel;
++
++nsAccelerometerSystem::nsAccelerometerSystem()
++{
++    gAccel = this;
++}
++
++nsAccelerometerSystem::~nsAccelerometerSystem()
++{
++}
++
++void nsAccelerometerSystem::Startup()
++{
++}
++
++void nsAccelerometerSystem::Shutdown()
++{
++}
+diff --git a/dom/system/webos/nsAccelerometerSystem.h b/dom/system/webos/nsAccelerometerSystem.h
+new file mode 100644
+--- /dev/null
++++ b/dom/system/webos/nsAccelerometerSystem.h
+@@ -0,0 +1,54 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is mozilla.org code.
++ *
++ * The Initial Developer of the Original Code is Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Dave Townsend <dtownsend@oxymoronical.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++#ifndef nsAccelerometerSystem_h
++#define nsAccelerometerSystem_h
++
++#include "nsAccelerometer.h"
++
++class nsAccelerometerSystem : public nsAccelerometer
++{
++public:
++  nsAccelerometerSystem();
++  virtual ~nsAccelerometerSystem();
++
++private:
++  virtual void Startup();
++  virtual void Shutdown();
++};
++
++#endif /* nsAccelerometerSystem_h */
++
+diff --git a/layout/build/Makefile.in b/layout/build/Makefile.in
+--- a/layout/build/Makefile.in
++++ b/layout/build/Makefile.in
+@@ -141,6 +141,13 @@ SHARED_LIBRARY_LIBS += \
+ LOCAL_INCLUDES	+= \
+ 	-I$(topsrcdir)/dom/system/android \
+ 	$(NULL)
++else ifneq (,$(filter webos,$(MOZ_WIDGET_TOOLKIT)))
++SHARED_LIBRARY_LIBS += \
++	$(DEPTH)/dom/system/webos/$(LIB_PREFIX)domsystemwebos_s.$(LIB_SUFFIX) \
++ 	$(NULL)
++LOCAL_INCLUDES	+= \
++	-I$(topsrcdir)/dom/system/webos \
++	$(NULL)
+ endif
+ 
+ ifdef MOZ_VORBIS
+diff --git a/widget/src/webos/Makefile.in b/widget/src/webos/Makefile.in
+--- a/widget/src/webos/Makefile.in
++++ b/widget/src/webos/Makefile.in
+@@ -96,6 +96,7 @@ DEFINES		+= -D_IMPL_NS_WIDGET
+ 
+ LOCAL_INCLUDES	+= \
+ 	-I$(topsrcdir)/widget/src/xpwidgets \
++	-I$(topsrcdir)/dom/system/webos \
+ 	-I$(srcdir) \
+ 	$(NULL)
+ 
+diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
+--- a/widget/src/webos/nsAppShell.cpp
++++ b/widget/src/webos/nsAppShell.cpp
+@@ -44,12 +44,15 @@
+ 
+ #include <pthread.h>
+ 
++#include "nsAccelerometerSystem.h"
+ #include "SDL/SDL.h"
+ 
+ using namespace mozilla;
+ 
+ #define EVLOG(args...) printf(args); printf("\n")
+ 
++nsAccelerometerSystem *gAccel = nsnull;
++
+ nsAppShell *nsAppShell::gAppShell = nsnull;
+ 
+ nsAppShell::nsAppShell()

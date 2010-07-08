@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1273018185 25200
+# Date 1278553971 25200
 # Node ID 871ac1800953f7e196d163aeffff876ba17c55c0
-# Parent  411ee064b3cb7c40df0bef3fe8bce3e3778fe794
+# Parent 2c855cb8dae0de089a7174dbcc3df25eb752f2df
 [palm] Make the app shell the manager for the widget info and support rotating based on orientation
 
 diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
@@ -17,9 +17,9 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
 -#include <pthread.h>
 +#define ORIENTATION_THRESHOLD 10000
  
- using namespace mozilla;
+ #include "nsAccelerometerSystem.h"
  
-@@ -50,7 +51,8 @@ PRLogModuleInfo* gAppShellLog = nsnull;
+@@ -54,7 +55,8 @@ nsAccelerometerSystem *gAccel = nsnull;
  
  nsAppShell *nsAppShell::gAppShell = nsnull;
  
@@ -29,7 +29,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
  {
  #if defined(PR_LOGGING)
      if (!gAppShellLog) {
-@@ -58,12 +60,39 @@ nsAppShell::nsAppShell()
+@@ -62,12 +64,39 @@ nsAppShell::nsAppShell()
      }
  #endif
  
@@ -69,7 +69,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
      gAppShell = nsnull;
  }
  
-@@ -76,6 +105,56 @@ nsAppShell::Init()
+@@ -80,6 +109,56 @@ nsAppShell::Init()
  }
  
  void
@@ -126,7 +126,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
  nsAppShell::ScheduleNativeEventCallback()
  {
  }
-@@ -102,6 +181,8 @@ nsAppShell::ShouldCoalesceEvent(SDL_Even
+@@ -106,6 +185,8 @@ nsAppShell::ShouldCoalesceEvent(SDL_Even
          }
          break;
      case SDL_MOUSEMOTION:
@@ -135,7 +135,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
          return PR_TRUE;
      }
  
-@@ -125,7 +206,7 @@ nsAppShell::CanCoalesceEvents(SDL_Event 
+@@ -129,7 +210,7 @@ nsAppShell::CanCoalesceEvents(SDL_Event 
  PRBool
  nsAppShell::ProcessNextNativeEvent(PRBool mayWait)
  {
@@ -144,7 +144,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
  
      SDL_Event event;
      int count = SDL_PollEvent(&event);
-@@ -133,8 +214,6 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
+@@ -137,8 +218,6 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
      if (count == 0)
          return PR_FALSE;
  
@@ -153,7 +153,7 @@ diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
      if (ShouldCoalesceEvent(event))
      {
          // Coalesce any events in the queue
-@@ -151,7 +230,22 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
+@@ -155,7 +234,22 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
          }
      }
  

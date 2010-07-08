@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278526826 25200
+# Date 1278551386 25200
 # Node ID 07f470a80f70e9a04b9dcff0e2db777130fddbea
-# Parent d7dd70c359ba86dcbf1ff8c38599a0e69cc4a216
+# Parent 2d7d6233171a1f396b4e8ba3194f1a5376504990
 [palm] Initial build configuration for PDK
 
 diff --git a/config/autoconf.mk.in b/config/autoconf.mk.in
@@ -144,20 +144,7 @@ diff --git a/configure.in b/configure.in
  esac
  
  dnl Only one oddball right now (QNX), but this gives us flexibility
-@@ -4935,6 +5021,12 @@ darwin*|*wince*|*winmo*)
- *)
-     ACCESSIBILITY=1
-     ;;
-+
-+cairo-webos)
-+    AC_DEFINE(MOZ_WIDGET_WEBOS)
-+    MOZ_WIDGET_TOOLKIT=webos
-+    MOZ_WEBGL=
-+    ;;
- esac
- 
- case "$target_os" in
-@@ -4966,6 +5058,22 @@ case "${target}" in
+@@ -4966,6 +5052,23 @@ case "${target}" in
          ;;
  esac
  
@@ -166,6 +153,7 @@ diff --git a/configure.in b/configure.in
 +        NSS_DISABLE_DBM=1
 +        MOZ_OGG=
 +        MOZ_WAVE=
++        MOZ_WEBM=
 +        USE_ARM_KUSER=1
 +        MOZ_INSTALLER=
 +        MOZ_CRASHREPORTER=
@@ -180,7 +168,7 @@ diff --git a/configure.in b/configure.in
  MOZ_ARG_ENABLE_STRING(application,
  [  --enable-application=APP
                            Options include:
-@@ -5086,7 +5194,8 @@ MOZ_ARG_HEADER(Toolkit Options)
+@@ -5086,7 +5189,8 @@ MOZ_ARG_HEADER(Toolkit Options)
          -o "$_DEFAULT_TOOLKIT" = "cairo-beos" \
          -o "$_DEFAULT_TOOLKIT" = "cairo-os2" \
          -o "$_DEFAULT_TOOLKIT" = "cairo-cocoa" \
@@ -190,7 +178,20 @@ diff --git a/configure.in b/configure.in
      then
          dnl nglayout only supports building with one toolkit,
          dnl so ignore everything after the first comma (",").
-@@ -5673,7 +5782,7 @@ dnl ====================================
+@@ -5201,6 +5305,12 @@ cairo-android)
+     MOZ_WEBGL=
+     ;;
+ 
++cairo-webos)
++    AC_DEFINE(MOZ_WIDGET_WEBOS)
++    MOZ_WIDGET_TOOLKIT=webos
++    MOZ_WEBGL=
++    ;;
++
+ esac
+ 
+ if test "$MOZ_ENABLE_XREMOTE"; then
+@@ -5673,7 +5783,7 @@ dnl ====================================
  dnl = Disable IPC support for tabs and plugins
  dnl ========================================================
  case "${target}" in

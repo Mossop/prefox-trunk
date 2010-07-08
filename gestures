@@ -1,6 +1,7 @@
 # HG changeset patch
+# Parent fc4b9d0883feef3311a992c77864a7b413576bfc
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1273018327 25200
+# Date 1278540967 25200
 
 [palm] support forward and back gestures
 
