@@ -1,18 +1,22 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271134518 25200
+# Date 1278908795 25200
 # Node ID 2e23a88a1792cd2d8816a012e3514cc4522d3098
-# Parent  5ab7ee57ac5501afbbadb071d2d05c21d8570836
+# Parent 69fe1cdc499f70cfa4468988f80fd48a02961370
 [palm] Fix build config dependency hacks
 
 diff --git a/config/autoconf.mk.in b/config/autoconf.mk.in
 --- a/config/autoconf.mk.in
 +++ b/config/autoconf.mk.in
-@@ -648,3 +648,4 @@ HAVE_CLOCK_MONOTONIC = @HAVE_CLOCK_MONOT
+@@ -665,6 +665,8 @@ HAVE_CLOCK_MONOTONIC = @HAVE_CLOCK_MONOT
  REALTIME_LIBS = @REALTIME_LIBS@
  
  WEBOS             = @WEBOS@
 +PALM_PDK          = @PALM_PDK@
++PALM_SDK          = @PALM_SDK@
+ 
+ ANDROID_NDK       = @ANDROID_NDK@
+ ANDROID_TOOLCHAIN = @ANDROID_TOOLCHAIN@
 diff --git a/config/rules.mk b/config/rules.mk
 --- a/config/rules.mk
 +++ b/config/rules.mk
@@ -26,7 +30,7 @@ diff --git a/config/rules.mk b/config/rules.mk
  
  # EXPAND_LIBNAME - $(call EXPAND_LIBNAME,foo)
  # expands to foo.lib on platforms with import libs and -lfoo otherwise
-@@ -836,10 +839,9 @@ DSO_LDOPTS_DEPS = $(EXTRA_DSO_LIBS) $(fi
+@@ -839,10 +842,9 @@ DSO_LDOPTS_DEPS = $(EXTRA_DSO_LIBS) $(fi
  
  ifndef _LIBNAME_RELATIVE_PATHS
  
@@ -43,7 +47,7 @@ diff --git a/config/rules.mk b/config/rules.mk
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -285,23 +285,20 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -403,23 +403,20 @@ if test "$target" = "arm-palm-eabi" ; th
          LDFLAGS="$LDFLAGS -Wl,--allow-shlib-undefined"
      fi
  
@@ -71,11 +75,11 @@ diff --git a/configure.in b/configure.in
 -
      WEBOS=1
      PALM_PDK="${palm_pdk}"
-     MOZ_OPTIMIZE_FLAGS="-Os"
+     PALM_SDK="${palm_sdk}"
 diff --git a/js/src/config/autoconf.mk.in b/js/src/config/autoconf.mk.in
 --- a/js/src/config/autoconf.mk.in
 +++ b/js/src/config/autoconf.mk.in
-@@ -339,3 +339,6 @@ WRAP_SYSTEM_INCLUDES = @WRAP_SYSTEM_INCL
+@@ -338,3 +338,6 @@ WRAP_SYSTEM_INCLUDES = @WRAP_SYSTEM_INCL
  ENABLE_TRACEJIT = @ENABLE_TRACEJIT@
  NANOJIT_ARCH = @NANOJIT_ARCH@
  HAVE_ARM_SIMD= @HAVE_ARM_SIMD@
@@ -95,7 +99,7 @@ diff --git a/js/src/config/rules.mk b/js/src/config/rules.mk
  
  # EXPAND_LIBNAME - $(call EXPAND_LIBNAME,foo)
  # expands to foo.lib on platforms with import libs and -lfoo otherwise
-@@ -836,10 +839,9 @@ DSO_LDOPTS_DEPS = $(EXTRA_DSO_LIBS) $(fi
+@@ -839,10 +842,9 @@ DSO_LDOPTS_DEPS = $(EXTRA_DSO_LIBS) $(fi
  
  ifndef _LIBNAME_RELATIVE_PATHS
  
@@ -112,7 +116,7 @@ diff --git a/js/src/config/rules.mk b/js/src/config/rules.mk
 diff --git a/js/src/configure.in b/js/src/configure.in
 --- a/js/src/configure.in
 +++ b/js/src/configure.in
-@@ -302,24 +302,25 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -307,24 +307,25 @@ if test "$target" = "arm-palm-eabi" ; th
      CXXFLAGS="-I$palm_pdk/include $CXXFLAGS"
      LDFLAGS="-L$palm_pdk/device/lib --sysroot=$palm_pdk/arm-gcc/sysroot -Wl,--allow-shlib-undefined $LDFLAGS"
  
@@ -150,7 +154,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
 diff --git a/nsprpub/configure.in b/nsprpub/configure.in
 --- a/nsprpub/configure.in
 +++ b/nsprpub/configure.in
-@@ -222,24 +222,19 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -227,24 +227,19 @@ if test "$target" = "arm-palm-eabi" ; th
      CXXFLAGS="-I$palm_pdk/include $CXXFLAGS"
      LDFLAGS="-L$palm_pdk/device/lib --sysroot=$palm_pdk/arm-gcc/sysroot -Wl,--allow-shlib-undefined $LDFLAGS"
  

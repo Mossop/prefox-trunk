@@ -1,16 +1,16 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271188366 25200
+# Date 1278907787 25200
 # Node ID 1e5428438fd655587be3275fd5943861361810da
-# Parent  7073dab7fdf70d4704cbf13c013989d3d21fb5a8
+# Parent dc43d6a21b26533c0d32bb208b4a8c87f6890769
 [palm] First stages of making build work on windows
 
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -248,20 +248,29 @@ AC_ARG_WITH(palm-pdk,
-            location where the Palm PDK can be found],
-     palm_pdk=$withval)
+@@ -355,6 +355,11 @@ AC_ARG_WITH(palm-sdk,
+            location where the Palm SDK can be found],
+     palm_sdk=$withval)
  
 +AC_ARG_WITH(palm-toolchain,
 +    [  --with-palm-toolchain=DIR
@@ -19,7 +19,9 @@ diff --git a/configure.in b/configure.in
 +
  if test "$target" = "arm-palm-eabi" ; then
      if test -z "$palm_pdk" ; then
-        AC_MSG_ERROR([Palm target, but missing --with-palm-pdk option!])
+         palm_pdk=/opt/PalmPDK
+@@ -371,15 +376,19 @@ if test "$target" = "arm-palm-eabi" ; th
+         AC_MSG_ERROR([You must specify the path to the Palm SDK with --with-palm-sdk=/path/to/sdk when targeting Palm.])
      fi
  
 +    if test -z "$palm_toolchain" ; then
@@ -46,7 +48,7 @@ diff --git a/configure.in b/configure.in
  
      dnl set up the various flags, but only if they're not specified earlier
      palm_flags="-I$palm_pdk/include -DWEBOS -mfloat-abi=softfp -fno-short-enums -fno-exceptions"
-@@ -280,12 +289,14 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -398,12 +407,14 @@ if test "$target" = "arm-palm-eabi" ; th
      fi
  
      if test -z "$LDFLAGS" ; then
@@ -70,7 +72,7 @@ diff --git a/configure.in b/configure.in
 diff --git a/js/src/configure.in b/js/src/configure.in
 --- a/js/src/configure.in
 +++ b/js/src/configure.in
-@@ -281,20 +281,29 @@ AC_ARG_WITH(palm-pdk,
+@@ -286,20 +286,29 @@ AC_ARG_WITH(palm-pdk,
             location where the Palm PDK can be found],
      palm_pdk=$withval)
  
@@ -108,7 +110,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
  
      dnl set up the various flags
      palm_flags="-I$palm_pdk/include -mfloat-abi=softfp -fno-short-enums -fno-exceptions"
-@@ -303,7 +312,14 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -308,7 +317,14 @@ if test "$target" = "arm-palm-eabi" ; th
      CPPFLAGS="$palm_flags $CPPFLAGS"
      CFLAGS="$palm_flags $CFLAGS"
      CXXFLAGS="$palm_flags $CXXFLAGS"
@@ -127,7 +129,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
 diff --git a/nsprpub/configure.in b/nsprpub/configure.in
 --- a/nsprpub/configure.in
 +++ b/nsprpub/configure.in
-@@ -201,20 +201,29 @@ AC_ARG_WITH(palm-pdk,
+@@ -206,20 +206,29 @@ AC_ARG_WITH(palm-pdk,
             location where the Palm PDK can be found],
      palm_pdk=$withval)
  
@@ -165,7 +167,7 @@ diff --git a/nsprpub/configure.in b/nsprpub/configure.in
  
      dnl set up the various flags
      palm_flags="-I$palm_pdk/include -mfloat-abi=softfp -fno-short-enums -fno-exceptions"
-@@ -223,7 +232,14 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -228,7 +237,14 @@ if test "$target" = "arm-palm-eabi" ; th
      CPPFLAGS="$palm_flags $CPPFLAGS"
      CFLAGS="$palm_flags $CFLAGS"
      CXXFLAGS="$palm_flags $CXXFLAGS"

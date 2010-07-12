@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278534378 25200
+# Date 1278907470 25200
 # Node ID 4855ce897bf3effec178fa6ede9499e4e95bd51f
-# Parent 75ba229754b71ad1735e3b04be691556b55ce513
+# Parent 991fdf4bb2119ef6739e6279f86d406dc646a6b3
 [palm] Application packaging
 
 diff --git a/embedding/Makefile.in b/embedding/Makefile.in
@@ -119,10 +119,10 @@ new file mode 100644
 +	cat $(DIST)/webos/chrome/*.manifest > $(DIST)/webos/chrome.manifest
 +	rm $(DIST)/webos/chrome/*.manifest
 +	mv $(DIST)/webos/chrome.manifest $(DIST)/webos/chrome
-+	$(PALM_PDK)/bin/pdk-package -o $(DIST) $(DIST)/webos
++	$(PALM_SDK)/bin/palm-package -o $(DIST) $(DIST)/webos
 +
 +install:: $(DIST)/$(PKG_NAME)
-+	$(PALM_PDK)/bin/pdk-install $(DIST)/$(PKG_NAME)
++	$(PALM_SDK)/bin/palm-install $(DIST)/$(PKG_NAME)
 diff --git a/embedding/webos/appinfo.json.in b/embedding/webos/appinfo.json.in
 new file mode 100644
 --- /dev/null

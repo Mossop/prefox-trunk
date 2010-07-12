@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278528331 25200
+# Date 1278703867 25200
 # Node ID 34c33efd206ab157ee8c1ab5a6ef8a56ee89c4d7
-# Parent a4ad59dec1aa083416c367576273c09ef9098555
+# Parent 5672eef43beaaf580c3da9f7731123fd82bbc9f3
 [palm] Add Palm GFX support
 
 diff --git a/gfx/src/thebes/Makefile.in b/gfx/src/thebes/Makefile.in
@@ -349,7 +349,7 @@ diff --git a/gfx/thebes/gfxWebOSPlatform.cpp b/gfx/thebes/gfxWebOSPlatform.cpp
 new file mode 100644
 --- /dev/null
 +++ b/gfx/thebes/gfxWebOSPlatform.cpp
-@@ -0,0 +1,335 @@
+@@ -0,0 +1,370 @@
 +/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*-
 + * ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -391,6 +391,11 @@ new file mode 100644
 +
 +#include <sys/types.h>
 +#include <dirent.h>
++
++#include "nsILocalFile.h"
++#include "nsISimpleEnumerator.h"
++#include "nsDirectoryServiceUtils.h"
++#include "nsDirectoryServiceDefs.h"
 +
 +#include "gfxWebOSPlatform.h"
 +
@@ -533,18 +538,48 @@ new file mode 100644
 +
 +    //CancelLoader();
 +
-+    DIR *d = opendir("/usr/share/fonts");
-+    struct dirent *ent = NULL;
-+    while(d && (ent = readdir(d)) != NULL) {
-+        int namelen = strlen(ent->d_name);
-+        if (namelen > 4 &&
-+            strcasecmp(ent->d_name + namelen - 4, ".ttf") == 0)
-+        {
-+            nsCString s("/usr/share/fonts");
-+            s.Append("/");
-+            s.Append(nsDependentCString(ent->d_name));
++#if 0
++    nsCOMPtr<nsILocalFile> fontdir = do_CreateInstance("@mozilla.org/file/local;1", &rv);
++    NS_ENSURE_SUCCESS(rv, rv);
++    rv = fontdir->InitWithPath(NS_LITERAL_STRING("/usr/share/fonts"));
++    NS_ENSURE_SUCCESS(rv, rv);
++#else
++    nsresult rv;
++    nsCOMPtr<nsIFile> fontdir;
++    rv = NS_GetSpecialDirectory(NS_GRE_DIR, getter_AddRefs(fontdir));
++    NS_ENSURE_SUCCESS(rv, rv);
++    rv = fontdir->Append(NS_LITERAL_STRING("fonts"));
++    NS_ENSURE_SUCCESS(rv, rv);
++#endif
 +
-+            AppendFacesFromFontFile(nsPromiseFlatCString(s).get());
++    nsCOMPtr<nsISimpleEnumerator> dirlist;
++    rv = fontdir->GetDirectoryEntries(getter_AddRefs(dirlist));
++    NS_ENSURE_SUCCESS(rv, rv);
++
++    PRBool hasMore = PR_FALSE;
++    while (NS_SUCCEEDED(dirlist->HasMoreElements(&hasMore)) && hasMore) {
++        nsCOMPtr<nsILocalFile> file;
++        rv = dirlist->GetNext(getter_AddRefs(file));
++        NS_ENSURE_SUCCESS(rv, rv);
++
++        nsCString leafName;
++        rv = file->GetNativeLeafName(leafName);
++        if (NS_FAILED(rv))
++            continue;
++
++        PRInt32 dotPos = leafName.RFindChar('.');
++        if (kNotFound == dotPos)
++            leafName.Truncate();
++        else
++            leafName.Cut(0, dotPos + 1);
++
++        if (leafName.LowerCaseEqualsLiteral("ttf")) {
++            nsCString path;
++            rv = file->GetNativePath(path);
++            if (NS_FAILED(rv))
++                continue;
++
++            AppendFacesFromFontFile(nsPromiseFlatCString(path).get());
 +        }
 +    }
 +

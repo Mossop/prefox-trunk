@@ -1,14 +1,14 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271305843 25200
+# Date 1278907352 25200
 # Node ID c86d50d9a55c4b770840192c665f451a08e9264c
-# Parent  1e5428438fd655587be3275fd5943861361810da
+# Parent cbc960026088289bb0baa4b6b5af5720696cac45
 [palm] Fix palm_toolchain default location
 
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -259,7 +259,7 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -369,7 +369,7 @@ if test "$target" = "arm-palm-eabi" ; th
      fi
  
      if test -z "$palm_toolchain" ; then
@@ -17,7 +17,7 @@ diff --git a/configure.in b/configure.in
      fi
  
      dnl set up compilers
-@@ -273,7 +273,7 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -383,7 +383,7 @@ if test "$target" = "arm-palm-eabi" ; th
      STRIP="$palm_toolchain/bin/arm-none-linux-gnueabi-strip"
  
      dnl set up the various flags, but only if they're not specified earlier
@@ -26,7 +26,7 @@ diff --git a/configure.in b/configure.in
      palm_flags+=" -mcpu=cortex-a8 -mfpu=neon"
      #palm_flags+=" -mcpu=arm1136jf-s -mfpu=vfp"
      if test -z "$CPPFLAGS" ; then
-@@ -313,14 +313,14 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -423,16 +423,16 @@ if test "$target" = "arm-palm-eabi" ; th
          HOST_LDFLAGS=" "
      fi
  
@@ -34,12 +34,14 @@ diff --git a/configure.in b/configure.in
 +    CROSS_COMPILE=1
      WEBOS=1
      PALM_PDK="${palm_pdk}"
+     PALM_SDK="${palm_sdk}"
 -    MOZ_OPTIMIZE_FLAGS="-Os"
 -
 +
 +    AC_DEFINE(WEBOS)
      AC_SUBST(WEBOS)
      AC_SUBST(PALM_PDK)
+     AC_SUBST(PALM_SDK)
 -
 -    CROSS_COMPILE=1
  fi
@@ -48,7 +50,7 @@ diff --git a/configure.in b/configure.in
 diff --git a/js/src/configure.in b/js/src/configure.in
 --- a/js/src/configure.in
 +++ b/js/src/configure.in
-@@ -292,7 +292,7 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -297,7 +297,7 @@ if test "$target" = "arm-palm-eabi" ; th
      fi
  
      if test -z "$palm_toolchain" ; then
@@ -57,7 +59,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
      fi
  
      dnl set up compilers
-@@ -335,7 +335,6 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -340,7 +340,6 @@ if test "$target" = "arm-palm-eabi" ; th
          HOST_LDFLAGS=" "
      fi
  
@@ -68,7 +70,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
 diff --git a/nsprpub/configure.in b/nsprpub/configure.in
 --- a/nsprpub/configure.in
 +++ b/nsprpub/configure.in
-@@ -212,7 +212,7 @@ if test "$target" = "arm-palm-eabi" ; th
+@@ -217,7 +217,7 @@ if test "$target" = "arm-palm-eabi" ; th
      fi
  
      if test -z "$palm_toolchain" ; then

@@ -1,31 +1,20 @@
 # HG changeset patch
-# Parent 0922f53a9bc7f359f5209fb29ae9fd63d14ba458
-# Date 1278534411 25200
+# Parent 20f076317e4c103e4f00c214385bf690b4d18a6d
+# Date 1278907388 25200
 
 [palm] Allow building with ctypes
 
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -415,14 +415,16 @@ if test "$target" = "arm-palm-eabi" ; th
-         HOST_LDFLAGS=" "
-     fi
- 
--    MOZ_OPTIMIZE_FLAGS="-Os"
--    CROSS_COMPILE=1
-     WEBOS=1
-     PALM_PDK="${palm_pdk}"
-+    MOZ_OPTIMIZE_FLAGS="-Os"
+@@ -430,6 +430,7 @@ if test "$target" = "arm-palm-eabi" ; th
+     PALM_SDK="${palm_sdk}"
  
      AC_DEFINE(WEBOS)
 +
      AC_SUBST(WEBOS)
      AC_SUBST(PALM_PDK)
-+
-+    CROSS_COMPILE=1
- fi
- 
- dnl ========================================================
+     AC_SUBST(PALM_SDK)
 diff --git a/js/src/configure.in b/js/src/configure.in
 --- a/js/src/configure.in
 +++ b/js/src/configure.in
