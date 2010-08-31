@@ -1,0 +1,207 @@
+# HG changeset patch
+# Parent 49213b479bcf82b211bcb5b9893d52399e7958d6
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1283219311 25200
+
+[palm] Build fixes
+* * *
+[palm] Fix disabling WebGL and Media elements
+
+diff --git a/content/events/src/nsEventListenerManager.cpp b/content/events/src/nsEventListenerManager.cpp
+--- a/content/events/src/nsEventListenerManager.cpp
++++ b/content/events/src/nsEventListenerManager.cpp
+@@ -474,12 +474,14 @@ nsEventListenerManager::AddEventListener
+     if (window) {
+       window->SetHasPaintEventListeners();
+     }
++#ifdef MOZ_MEDIA
+   } else if (aType == NS_MOZAUDIOAVAILABLE) {
+     mMayHaveAudioAvailableEventListener = PR_TRUE;
+     nsPIDOMWindow* window = GetInnerWindowForTarget();
+     if (window) {
+       window->SetHasAudioAvailableEventListeners();
+     }
++#endif
+   } else if (aType >= NS_MUTATION_START && aType <= NS_MUTATION_END) {
+     // For mutation listeners, we need to update the global bit on the DOM window.
+     // Otherwise we won't actually fire the mutation event.
+diff --git a/dom/base/nsDOMClassInfo.cpp b/dom/base/nsDOMClassInfo.cpp
+--- a/dom/base/nsDOMClassInfo.cpp
++++ b/dom/base/nsDOMClassInfo.cpp
+@@ -1404,6 +1404,7 @@ static nsDOMClassInfoData sClassInfoData
+   NS_DEFINE_CHROME_ONLY_CLASSINFO_DATA(ChromeWorker, nsDOMGenericSH,
+                                        DOM_DEFAULT_SCRIPTABLE_FLAGS)
+ 
++#ifdef MOZ_WEBGL
+   NS_DEFINE_CLASSINFO_DATA(CanvasRenderingContextWebGL, nsDOMGenericSH,
+                            DOM_DEFAULT_SCRIPTABLE_FLAGS)
+   NS_DEFINE_CLASSINFO_DATA(WebGLBuffer, nsDOMGenericSH,
+@@ -1422,6 +1423,7 @@ static nsDOMClassInfoData sClassInfoData
+                            DOM_DEFAULT_SCRIPTABLE_FLAGS)
+   NS_DEFINE_CLASSINFO_DATA(WebGLActiveInfo, nsDOMGenericSH,
+                            DOM_DEFAULT_SCRIPTABLE_FLAGS)
++#endif
+ 
+   NS_DEFINE_CLASSINFO_DATA(PaintRequest, nsDOMGenericSH,
+                            DOM_DEFAULT_SCRIPTABLE_FLAGS)
+@@ -3973,6 +3975,7 @@ nsDOMClassInfo::Init()
+     DOM_CLASSINFO_MAP_ENTRY(nsIDOMEventTarget)
+   DOM_CLASSINFO_MAP_END
+ 
++#ifdef MOZ_WEBGL
+   DOM_CLASSINFO_MAP_BEGIN(CanvasRenderingContextWebGL, nsICanvasRenderingContextWebGL)
+     DOM_CLASSINFO_MAP_ENTRY(nsICanvasRenderingContextWebGL)
+   DOM_CLASSINFO_MAP_END
+@@ -4008,6 +4011,7 @@ nsDOMClassInfo::Init()
+   DOM_CLASSINFO_MAP_BEGIN(WebGLActiveInfo, nsIWebGLActiveInfo)
+     DOM_CLASSINFO_MAP_ENTRY(nsIWebGLActiveInfo)
+   DOM_CLASSINFO_MAP_END
++#endif
+ 
+   DOM_CLASSINFO_MAP_BEGIN(PaintRequest, nsIDOMPaintRequest)
+     DOM_CLASSINFO_MAP_ENTRY(nsIDOMPaintRequest)
+diff --git a/dom/base/nsDOMClassInfoClasses.h b/dom/base/nsDOMClassInfoClasses.h
+--- a/dom/base/nsDOMClassInfoClasses.h
++++ b/dom/base/nsDOMClassInfoClasses.h
+@@ -460,6 +460,7 @@ DOMCI_CLASS(MathMLElement)
+ DOMCI_CLASS(Worker)
+ DOMCI_CLASS(ChromeWorker)
+ 
++#ifdef MOZ_WEBGL
+ // WebGL
+ DOMCI_CLASS(CanvasRenderingContextWebGL)
+ DOMCI_CLASS(WebGLBuffer)
+@@ -470,6 +471,7 @@ DOMCI_CLASS(WebGLFramebuffer)
+ DOMCI_CLASS(WebGLRenderbuffer)
+ DOMCI_CLASS(WebGLUniformLocation)
+ DOMCI_CLASS(WebGLActiveInfo)
++#endif
+ 
+ // WebGL Buffers
+ DOMCI_CLASS(PaintRequest)
+diff --git a/js/src/jscpucfg.cpp b/js/src/jscpucfg.cpp
+--- a/js/src/jscpucfg.cpp
++++ b/js/src/jscpucfg.cpp
+@@ -58,7 +58,7 @@ int main(int argc, char **argv)
+     printf("/* AUTOMATICALLY GENERATED - DO NOT EDIT */\n\n");
+ 
+ #ifdef CROSS_COMPILE
+-#if defined(__APPLE__)
++#if defined(__APPLE__) && !defined(FORCE_BIG_ENDIAN) && !defined(FORCE_LITTLE_ENDIAN)
+     /*
+      * Darwin NSPR uses the same MDCPUCFG (_darwin.cfg) for multiple
+      * processors, and determines which processor to configure for based
+diff --git a/layout/build/Makefile.in b/layout/build/Makefile.in
+--- a/layout/build/Makefile.in
++++ b/layout/build/Makefile.in
+@@ -169,9 +169,11 @@ SHARED_LIBRARY_LIBS 	+= \
+ 	$(NULL)
+ endif
+ 
++ifdef MOZ_MEDIA
+ SHARED_LIBRARY_LIBS     += \
+        $(DEPTH)/content/media/raw/$(LIB_PREFIX)gkconraw_s.$(LIB_SUFFIX)\
+        $(NULL)
++endif
+ 
+ ifdef MOZ_WEBM
+ SHARED_LIBRARY_LIBS 	+= \
+diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp b/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
+--- a/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
++++ b/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
+@@ -53,10 +53,14 @@
+ #endif
+ 
+ #include "nsMIMEInfoUnix.h"
++#include "nsAutoPtr.h"
++
++#ifdef MOZ_WIDGET_GTK2
+ #include "nsGNOMERegistry.h"
+ #include "nsIGIOService.h"
+ #include "nsIGnomeVFSService.h"
+-#include "nsAutoPtr.h"
++#endif
++
+ #ifdef MOZ_ENABLE_DBUS
+ #include "nsDBusHandlerApp.h"
+ #endif
+@@ -64,6 +68,7 @@
+ nsresult
+ nsMIMEInfoUnix::LoadUriInternal(nsIURI * aURI)
+ {
++#ifdef MOZ_WIDGET_GTK2
+   nsresult rv = nsGNOMERegistry::LoadURL(aURI);
+ 
+ #if (MOZ_PLATFORM_MAEMO == 5) && defined (MOZ_ENABLE_GNOMEVFS)
+@@ -90,11 +95,15 @@ nsMIMEInfoUnix::LoadUriInternal(nsIURI *
+ #endif
+ 
+   return rv;
++#else
++  return NS_ERROR_NOT_IMPLEMENTED;
++#endif
+ }
+ 
+ NS_IMETHODIMP
+ nsMIMEInfoUnix::GetHasDefaultHandler(PRBool *_retval)
+ {
++#ifdef MOZ_WIDGET_GTK2
+   *_retval = PR_FALSE;
+   nsRefPtr<nsMIMEInfoBase> mimeInfo = nsGNOMERegistry::GetFromType(mSchemeOrType);
+   if (!mimeInfo) {
+@@ -127,6 +136,7 @@ nsMIMEInfoUnix::GetHasDefaultHandler(PRB
+     return NS_OK;
+   }
+ #endif
++#endif
+ 
+   // If we didn't find a VFS handler, fallback.
+   return nsMIMEInfoImpl::GetHasDefaultHandler(_retval);
+@@ -154,6 +164,7 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(ns
+   return NS_ERROR_FAILURE;
+ #endif
+ 
++#ifdef MOZ_WIDGET_GTK2
+   nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
+   nsCOMPtr<nsIGnomeVFSService> gnomevfs = do_GetService(NS_GNOMEVFSSERVICE_CONTRACTID);
+   if (giovfs) {
+@@ -183,6 +194,7 @@ nsMIMEInfoUnix::LaunchDefaultWithFile(ns
+         return app->Launch(nativePath);
+     }
+   }
++#endif
+ 
+   if (!mDefaultApplication)
+     return NS_ERROR_FILE_NOT_FOUND;
+diff --git a/uriloader/exthandler/unix/nsMIMEInfoUnix.h b/uriloader/exthandler/unix/nsMIMEInfoUnix.h
+--- a/uriloader/exthandler/unix/nsMIMEInfoUnix.h
++++ b/uriloader/exthandler/unix/nsMIMEInfoUnix.h
+@@ -49,7 +49,9 @@ public:
+   nsMIMEInfoUnix(const nsACString& aMIMEType) : nsMIMEInfoImpl(aMIMEType) {}
+   nsMIMEInfoUnix(const nsACString& aType, HandlerClass aClass) :
+     nsMIMEInfoImpl(aType, aClass) {}
++#ifdef MOZ_WIDGET_GTK2
+   static PRBool HandlerExists(const char *aProtocolScheme);
++#endif
+ 
+ protected:
+   NS_IMETHOD GetHasDefaultHandler(PRBool *_retval);
+diff --git a/xpcom/typelib/xpidl/Makefile.in b/xpcom/typelib/xpidl/Makefile.in
+--- a/xpcom/typelib/xpidl/Makefile.in
++++ b/xpcom/typelib/xpidl/Makefile.in
+@@ -78,6 +78,7 @@ BUILD_TARGET = 1
+ 
+ endif # CROSS_COMPILE
+ 
++ifndef CROSS_COMPILE
+ ifdef BUILD_TARGET
+ PROGRAM		= xpidl$(BIN_SUFFIX)
+ CSRCS 		= $(XPIDL_CSRCS)
+@@ -85,6 +86,7 @@ SDK_BINARY  	= $(PROGRAM)
+ CFLAGS         += LIBIDL_CFLAGS
+ LIBS           += LIBIDL_LIBS
+ endif
++endif
+ 
+ USE_STATIC_LIBS = 1
+ 

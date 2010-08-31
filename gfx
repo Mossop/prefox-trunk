@@ -1,14 +1,16 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1278703867 25200
+# Date 1282286972 25200
 # Node ID 34c33efd206ab157ee8c1ab5a6ef8a56ee89c4d7
-# Parent 5672eef43beaaf580c3da9f7731123fd82bbc9f3
+# Parent 2c97021e3e8f6c405d719b3b2ffadf2ee4cc769b
 [palm] Add Palm GFX support
+* * *
+[palm] Fix shutdown crash
 
 diff --git a/gfx/src/thebes/Makefile.in b/gfx/src/thebes/Makefile.in
 --- a/gfx/src/thebes/Makefile.in
 +++ b/gfx/src/thebes/Makefile.in
-@@ -103,6 +103,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
+@@ -101,6 +101,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
  CPPSRCS		+= nsSystemFontsAndroid.cpp
  endif
  
@@ -92,7 +94,7 @@ new file mode 100644
 +    *aFontName = NS_LITERAL_STRING(DEFAULT_FONT);
 +    aFontStyle->weight = 400;
 +    aFontStyle->stretch = NS_FONT_STRETCH_NORMAL;
-+    aFontStyle->size = 9.0 * float(gfxPlatform::GetDPI()) / 72.0f;
++    aFontStyle->size = 9.0 * 96.0f / 72.0f;
 +    return NS_OK;
 +}
 +
@@ -237,15 +239,7 @@ diff --git a/gfx/src/thebes/nsThebesDeviceContext.cpp b/gfx/src/thebes/nsThebesD
  #else
  #error Need to declare gSystemFonts!
  #endif
-@@ -272,6 +275,7 @@ NS_IMPL_ISUPPORTS3(nsThebesDeviceContext
- 
- nsThebesDeviceContext::nsThebesDeviceContext()
- {
-+    printf("nsThebesDeviceContext::nsThebesDeviceContext\n");
- #ifdef PR_LOGGING
-     if (!gThebesGFXLog)
-         gThebesGFXLog = PR_NewLogModule("thebesGfx");
-@@ -834,6 +838,8 @@ nsThebesDeviceContext::GetSystemFont(nsS
+@@ -826,6 +829,8 @@ nsThebesDeviceContext::GetSystemFont(nsS
          gSystemFonts = new nsSystemFontsQt();
  #elif defined(ANDROID)
          gSystemFonts = new nsSystemFontsAndroid();
@@ -257,7 +251,7 @@ diff --git a/gfx/src/thebes/nsThebesDeviceContext.cpp b/gfx/src/thebes/nsThebesD
 diff --git a/gfx/thebes/Makefile.in b/gfx/thebes/Makefile.in
 --- a/gfx/thebes/Makefile.in
 +++ b/gfx/thebes/Makefile.in
-@@ -282,6 +282,16 @@ CPPSRCS += \
+@@ -290,6 +290,16 @@ CPPSRCS += \
  	$(NULL)
  endif
  
@@ -274,7 +268,7 @@ diff --git a/gfx/thebes/Makefile.in b/gfx/thebes/Makefile.in
  ifeq ($(MOZ_WIDGET_TOOLKIT),os2)
  CPPSRCS	+=	gfxOS2Fonts.cpp \
  		gfxOS2Platform.cpp \
-@@ -292,6 +302,14 @@ CPPSRCS	+=	gfxOS2Fonts.cpp \
+@@ -300,6 +310,14 @@ CPPSRCS	+=	gfxOS2Fonts.cpp \
  CPPSRCS +=	gfxPDFSurface.cpp
  endif
  
@@ -289,7 +283,7 @@ diff --git a/gfx/thebes/Makefile.in b/gfx/thebes/Makefile.in
  ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
  
  ifdef MOZ_PANGO
-@@ -427,6 +445,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
+@@ -447,6 +465,10 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
  CXXFLAGS += $(CAIRO_FT_CFLAGS)
  endif
  
@@ -313,7 +307,21 @@ diff --git a/gfx/thebes/gfxFT2Fonts.cpp b/gfx/thebes/gfxFT2Fonts.cpp
  #endif
  
  #include "gfxTypes.h"
-@@ -364,6 +367,8 @@ gfxFT2FontGroup::gfxFT2FontGroup(const n
+@@ -101,11 +104,13 @@ FontEntry::~FontEntry()
+     mFTFace = nsnull;
+ 
+ #ifndef ANDROID
++#ifndef WEBOS
+     if (mFontFace) {
+         cairo_font_face_destroy(mFontFace);
+         mFontFace = nsnull;
+     }
+ #endif
++#endif
+ }
+ 
+ gfxFont*
+@@ -371,6 +376,8 @@ gfxFT2FontGroup::gfxFT2FontGroup(const n
              familyArray.AppendElement(nsDependentString(logFont.lfFaceName));
  #elif defined(ANDROID)
          familyArray.AppendElement(NS_LITERAL_STRING("Droid Sans"));
@@ -349,7 +357,7 @@ diff --git a/gfx/thebes/gfxWebOSPlatform.cpp b/gfx/thebes/gfxWebOSPlatform.cpp
 new file mode 100644
 --- /dev/null
 +++ b/gfx/thebes/gfxWebOSPlatform.cpp
-@@ -0,0 +1,370 @@
+@@ -0,0 +1,382 @@
 +/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*-
 + * ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -415,10 +423,20 @@ new file mode 100644
 +#include FT_FREETYPE_H
 +#include "gfxFT2Fonts.h"
 +
++PRLogModuleInfo* gGFXWebOSPlatformLog = nsnull;
++
 +static FT_Library gPlatformFTLibrary = NULL;
 +
 +gfxWebOSPlatform::gfxWebOSPlatform()
 +{
++#if defined(PR_LOGGING)
++    if (!gGFXWebOSPlatformLog) {
++        gGFXWebOSPlatformLog = PR_NewLogModule("gfxWebOSPlatform");
++    }
++#endif
++
++    PR_LOG(gGFXWebOSPlatformLog, PR_LOG_DEBUG, ("Init"));
++
 +    FT_Init_FreeType(&gPlatformFTLibrary);
 +
 +    mFonts.Init(200);
@@ -431,10 +449,20 @@ new file mode 100644
 +
 +gfxWebOSPlatform::~gfxWebOSPlatform()
 +{
++    PR_LOG(gGFXWebOSPlatformLog, PR_LOG_DEBUG, ("Destroy"));
++
 +    cairo_debug_reset_static_data();
 +
-+    //FT_Done_FreeType(gPlatformFTLibrary);
++    FT_Done_FreeType(gPlatformFTLibrary);
 +    gPlatformFTLibrary = NULL;
++}
++
++void
++gfxWebOSPlatform::Shutdown()
++{
++    PR_LOG(gGFXWebOSPlatformLog, PR_LOG_DEBUG, ("Shutdown"));
++
++    gfxPlatform::Shutdown();
 +}
 +
 +already_AddRefed<gfxASurface>
@@ -538,19 +566,11 @@ new file mode 100644
 +
 +    //CancelLoader();
 +
-+#if 0
++    nsresult rv;
 +    nsCOMPtr<nsILocalFile> fontdir = do_CreateInstance("@mozilla.org/file/local;1", &rv);
 +    NS_ENSURE_SUCCESS(rv, rv);
 +    rv = fontdir->InitWithPath(NS_LITERAL_STRING("/usr/share/fonts"));
 +    NS_ENSURE_SUCCESS(rv, rv);
-+#else
-+    nsresult rv;
-+    nsCOMPtr<nsIFile> fontdir;
-+    rv = NS_GetSpecialDirectory(NS_GRE_DIR, getter_AddRefs(fontdir));
-+    NS_ENSURE_SUCCESS(rv, rv);
-+    rv = fontdir->Append(NS_LITERAL_STRING("fonts"));
-+    NS_ENSURE_SUCCESS(rv, rv);
-+#endif
 +
 +    nsCOMPtr<nsISimpleEnumerator> dirlist;
 +    rv = fontdir->GetDirectoryEntries(getter_AddRefs(dirlist));
@@ -638,7 +658,7 @@ new file mode 100644
 +                               const gfxFontStyle *aStyle,
 +                               gfxUserFontSet* aUserFontSet)
 +{
-+    return new gfxFT2FontGroup(aFamilies, aStyle);
++    return new gfxFT2FontGroup(aFamilies, aStyle, aUserFontSet);
 +}
 +
 +FT_Library
@@ -724,7 +744,7 @@ diff --git a/gfx/thebes/gfxWebOSPlatform.h b/gfx/thebes/gfxWebOSPlatform.h
 new file mode 100644
 --- /dev/null
 +++ b/gfx/thebes/gfxWebOSPlatform.h
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,107 @@
 +/* -*- Mode: C++; tab-width: 20; indent-tabs-mode: nil; c-basic-offset: 4 -*-
 + * ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -815,6 +835,7 @@ new file mode 100644
 +    FT_Library GetFTLibrary();
 +
 +protected:
++    void Shutdown();
 +    void AppendFacesFromFontFile(const char *aFileName);
 +
 +    typedef nsDataHashtable<nsStringHashKey, nsRefPtr<FontFamily> > FontTable;

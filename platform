@@ -1,0 +1,129 @@
+# HG changeset patch
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1282529825 25200
+# Node ID dc4aba80149e52b6fb7dec6ec7281bcd9b7aa86b
+# Parent 84d6e9c25eaab97b5fea0863d19292694453996c
+[palm] General platform fixes
+* * *
+[palm] Avoid crash when running from the launcher
+* * *
+[palm] Add webOS to the Http user agent
+
+diff --git a/js/src/assembler/assembler/MacroAssemblerARM.cpp b/js/src/assembler/assembler/MacroAssemblerARM.cpp
+--- a/js/src/assembler/assembler/MacroAssemblerARM.cpp
++++ b/js/src/assembler/assembler/MacroAssemblerARM.cpp
+@@ -37,6 +37,9 @@
+ #include <unistd.h>
+ #include <elf.h>
+ 
++#ifdef WEBOS
++#include <asm/elf.h>
++#else
+ // lame check for kernel version
+ // see bug 586550
+ #include <linux/version.h>
+@@ -45,6 +48,7 @@
+ #else
+ #include <asm/hwcap.h>
+ #endif
++#endif
+ 
+ #endif
+ 
+diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsHttpHandler.cpp
+--- a/netwerk/protocol/http/nsHttpHandler.cpp
++++ b/netwerk/protocol/http/nsHttpHandler.cpp
+@@ -99,6 +99,10 @@
+ #include <os2.h>
+ #endif
+ 
++#if defined(WEBOS)
++#include "PDL.h"
++#endif
++
+ //-----------------------------------------------------------------------------
+ using namespace mozilla::net;
+ #ifdef MOZ_IPC
+@@ -688,6 +692,8 @@ nsHttpHandler::InitUserAgentComponents()
+     "BeOS"
+ #elif defined(MOZ_X11)
+     "X11"
++#elif defined(WEBOS)
++    "webOS"
+ #else
+     "?"
+ #endif
+@@ -748,6 +754,13 @@ nsHttpHandler::InitUserAgentComponents()
+         (::Gestalt(gestaltSystemVersionMinor, &minorVersion) == noErr)) {
+         mOscpu += nsPrintfCString(" %d.%d", majorVersion, minorVersion);
+     }
++#elif defined (WEBOS)
++    mOscpu.AssignLiteral("webOS");
++    PDL_OSVersion versionInfo;
++    if (PDL_GetOSVersion(&versionInfo) == PDL_NOERROR) {
++        mOscpu += nsPrintfCString(" %d.%d.%d", versionInfo.majorVersion,
++                                  versionInfo.minorVersion, versionInfo.revision);
++    }
+ #elif defined (XP_UNIX) || defined (XP_BEOS)
+     struct utsname name;
+     
+diff --git a/toolkit/xre/nsXREDirProvider.cpp b/toolkit/xre/nsXREDirProvider.cpp
+--- a/toolkit/xre/nsXREDirProvider.cpp
++++ b/toolkit/xre/nsXREDirProvider.cpp
+@@ -92,6 +92,9 @@
+ #define INCL_DOS
+ #include <os2.h>
+ #endif
++#ifdef WEBOS
++#include "PDL.h"
++#endif
+ 
+ #if defined(XP_MACOSX)
+ #define APP_REGISTRY_NAME "Application Registry"
+@@ -1101,6 +1104,19 @@ nsXREDirProvider::GetUserDataDirectoryHo
+ 
+   rv = NS_NewNativeLocalFile(nsDependentCString(homeDir), PR_TRUE,
+                              getter_AddRefs(localDir));
++#elif defined(WEBOS)
++  nsCOMPtr<nsIFile> file;
++  rv = gDirServiceProvider->mXULAppDir->Clone(getter_AddRefs(file));
++  NS_ENSURE_SUCCESS(rv, rv);
++  localDir = do_QueryInterface(file, &rv);
++  NS_ENSURE_SUCCESS(rv, rv);
++
++  char buffer[256];
++  PDL_Err err = PDL_GetCallingPath(buffer, 256);
++  if (err == PDL_NOERROR)
++      localDir->AppendRelativeNativePath(nsDependentCString(buffer));
++
++  rv = localDir->Append(NS_LITERAL_STRING("userdata"));
+ #elif defined(XP_UNIX)
+   const char* homeDir = getenv("HOME");
+   if (!homeDir || !*homeDir)
+diff --git a/uriloader/exthandler/Makefile.in b/uriloader/exthandler/Makefile.in
+--- a/uriloader/exthandler/Makefile.in
++++ b/uriloader/exthandler/Makefile.in
+@@ -132,6 +132,10 @@ EXPORTS_mozilla/dom = \
+     ExternalHelperAppParent.h \
+     ExternalHelperAppChild.h
+ 
++ifeq ($(MOZ_WIDGET_TOOLKIT),webos)
++OSHELPER  += nsMIMEInfoUnix.cpp
++endif
++
+ EXPORTS = \
+ 		$(OSDIR)/nsOSHelperAppService.h \
+ 		$(NULL)
+diff --git a/xpcom/io/SpecialSystemDirectory.cpp b/xpcom/io/SpecialSystemDirectory.cpp
+--- a/xpcom/io/SpecialSystemDirectory.cpp
++++ b/xpcom/io/SpecialSystemDirectory.cpp
+@@ -508,6 +508,9 @@ GetUnixXDGUserDirectory(SystemDirectorie
+ 
+         rv = file->AppendNative(NS_LITERAL_CSTRING(".documents"));
+     }
++#elif defined(WEBOS)
++     // XXX no home dir on android; maybe we should return the sdcard if present?
++     return NS_ERROR_FAILURE;
+ #else
+     else {
+       // no fallback for the other XDG dirs

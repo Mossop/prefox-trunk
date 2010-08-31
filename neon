@@ -1,13 +1,14 @@
 # HG changeset patch
+# Parent 7a86efcf31d2fe85078bccdf8925cb9867de277d
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1271731401 25200
+# Date 1282278909 25200
 
-[palm] Disable NEON code generation to fix hang
+[palm] Disable NEON code generation to fix hang (https://bugs.freedesktop.org/show_bug.cgi?id=27818)
 
 diff --git a/gfx/cairo/libpixman/src/Makefile.in b/gfx/cairo/libpixman/src/Makefile.in
 --- a/gfx/cairo/libpixman/src/Makefile.in
 +++ b/gfx/cairo/libpixman/src/Makefile.in
-@@ -91,10 +91,12 @@ ifeq (arm,$(findstring arm,$(OS_TEST)))
+@@ -92,10 +92,12 @@ ifeq (arm,$(findstring arm,$(OS_TEST)))
  ifdef HAVE_ARM_SIMD
  USE_ARM_SIMD_GCC=1
  endif

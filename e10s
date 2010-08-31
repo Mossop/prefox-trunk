@@ -1,0 +1,194 @@
+# HG changeset patch
+# Parent 9170735652288769f52bac4f0b23a0960cf132c7
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1282441189 25200
+
+[palm] Enable e10s for webOS
+
+diff --git a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -5094,7 +5094,6 @@ case "${target}" in
+         MOZ_CRASHREPORTER=
+         NS_PRINTING=
+         NECKO_WIFI=
+-        MOZ_IPC=
+         MOZ_THEME_FASTSTRIPE=1
+         MOZ_TREE_FREETYPE=1
+         MOZ_MEMORY=1
+diff --git a/content/base/src/nsFrameLoader.cpp b/content/base/src/nsFrameLoader.cpp
+--- a/content/base/src/nsFrameLoader.cpp
++++ b/content/base/src/nsFrameLoader.cpp
+@@ -830,6 +830,11 @@ nsFrameLoader::ShowRemoteFrame(nsIFrameF
+ 
+   if (!mRemoteBrowser->SendCreateWidget(0))
+     return false;
++#elif defined(WEBOS)
++  // Painting with shared memory
++
++  if (!mRemoteBrowser->SendCreateWidget(0))
++    return false;
+ #elif defined(XP_MACOSX)
+ #  warning IMPLEMENT ME
+ 
+diff --git a/dom/ipc/TabChild.cpp b/dom/ipc/TabChild.cpp
+--- a/dom/ipc/TabChild.cpp
++++ b/dom/ipc/TabChild.cpp
+@@ -450,6 +450,11 @@ TabChild::RecvCreateWidget(const MagicWi
+     // The android widget code is mostly disabled in the child process
+     // so it won't choke on this
+     void *win = (void *)0x1234;
++#elif defined(WEBOS)
++    // Fake pointer to make baseWindow->InitWindow work
++    // The android widget code is mostly disabled in the child process
++    // so it won't choke on this
++    void *win = (void *)0x1234;
+ #elif defined(XP_MACOSX)
+ #  warning IMPLEMENT ME
+ #else
+diff --git a/dom/ipc/TabTypes.h b/dom/ipc/TabTypes.h
+--- a/dom/ipc/TabTypes.h
++++ b/dom/ipc/TabTypes.h
+@@ -27,6 +27,10 @@ typedef long MagicWindowHandle;
+ /* we don't really use this */
+ typedef unsigned long MagicWindowHandle;
+ 
++#elif defined(WEBOS)
++/* we don't really use this */
++typedef unsigned long MagicWindowHandle;
++
+ #else
+ #error Not implemented, stooge
+ #endif
+diff --git a/dom/plugins/PluginInstanceChild.cpp b/dom/plugins/PluginInstanceChild.cpp
+--- a/dom/plugins/PluginInstanceChild.cpp
++++ b/dom/plugins/PluginInstanceChild.cpp
+@@ -916,7 +916,7 @@ PluginInstanceChild::AnswerNPP_SetWindow
+     if (mPluginIface->setwindow)
+         (void) mPluginIface->setwindow(&mData, &mWindow);
+ 
+-#elif defined(ANDROID)
++#elif defined(ANDROID) || defined(WEBOS)
+ #  warning Need Android impl
+ #else
+ #  error Implement me for your OS
+diff --git a/dom/plugins/PluginInstanceParent.cpp b/dom/plugins/PluginInstanceParent.cpp
+--- a/dom/plugins/PluginInstanceParent.cpp
++++ b/dom/plugins/PluginInstanceParent.cpp
+@@ -244,7 +244,7 @@ PluginInstanceParent::AnswerNPN_GetValue
+     XID id;
+ #elif defined(XP_MACOSX)
+     intptr_t id;
+-#elif defined(ANDROID)
++#elif defined(ANDROID) || defined(WEBOS)
+ #warning Need Android impl
+     int id;
+ #else
+diff --git a/dom/plugins/PluginMessageUtils.h b/dom/plugins/PluginMessageUtils.h
+--- a/dom/plugins/PluginMessageUtils.h
++++ b/dom/plugins/PluginMessageUtils.h
+@@ -124,7 +124,7 @@ struct NPRemoteWindow
+ typedef HWND NativeWindowHandle;
+ #elif defined(MOZ_X11)
+ typedef XID NativeWindowHandle;
+-#elif defined(XP_MACOSX) || defined(ANDROID)
++#elif defined(XP_MACOSX) || defined(ANDROID) || defined(WEBOS)
+ typedef intptr_t NativeWindowHandle; // never actually used, will always be 0
+ #else
+ #error Need NativeWindowHandle for this platform
+@@ -767,7 +767,7 @@ struct ParamTraits<NPCoordinateSpace>
+ #  error Sorry, OS/2 is not supported
+ #elif defined(XP_UNIX) && defined(MOZ_X11)
+ #  include "mozilla/plugins/NPEventX11.h"
+-#elif defined(ANDROID)
++#elif defined(ANDROID) || defined(WEBOS)
+ #  include "mozilla/plugins/NPEventAndroid.h"
+ #else
+ #  error Unsupported platform
+diff --git a/ipc/chromium/Makefile.in b/ipc/chromium/Makefile.in
+--- a/ipc/chromium/Makefile.in
++++ b/ipc/chromium/Makefile.in
+@@ -209,6 +209,13 @@ CPPSRCS += \
+   $(NULL)
+ endif # Android
+ 
++ifdef WEBOS
++DEFINES += -D_POSIX_MONOTONIC_CLOCK=0
++CPPSRCS += \
++  message_pump_android.cc \
++  $(NULL)
++endif # WEBOS
++
+ endif # } OS_POSIX
+ 
+ ifdef OS_MACOSX # {
+diff --git a/ipc/chromium/src/base/message_loop.cc b/ipc/chromium/src/base/message_loop.cc
+--- a/ipc/chromium/src/base/message_loop.cc
++++ b/ipc/chromium/src/base/message_loop.cc
+@@ -27,7 +27,7 @@
+ #include "base/message_pump_qt.h"
+ #endif
+ #endif
+-#ifdef MOZ_WIDGET_ANDROID
++#if defined(MOZ_WIDGET_ANDROID) || defined(WEBOS)
+ #include "base/message_pump_android.h"
+ #endif
+ 
+diff --git a/ipc/chromium/src/build/build_config.h b/ipc/chromium/src/build/build_config.h
+--- a/ipc/chromium/src/build/build_config.h
++++ b/ipc/chromium/src/build/build_config.h
+@@ -17,7 +17,7 @@
+ // A set of macros to use for platform detection.
+ #if defined(__APPLE__)
+ #define OS_MACOSX 1
+-#elif defined(__linux__) || defined(ANDROID)
++#elif defined(__linux__) || defined(ANDROID) || defined(WEBOS)
+ #define OS_LINUX 1
+ #elif defined(_WIN32)
+ #define OS_WIN 1
+diff --git a/widget/src/webos/nsAppShell.cpp b/widget/src/webos/nsAppShell.cpp
+--- a/widget/src/webos/nsAppShell.cpp
++++ b/widget/src/webos/nsAppShell.cpp
+@@ -270,3 +270,17 @@ nsAppShell::ProcessNextNativeEvent(PRBoo
+ 
+     return PR_TRUE;
+ }
++
++// Used by IPC code
++namespace mozilla {
++
++bool ProcessNextEvent()
++{
++    return nsAppShell::gAppShell->ProcessNextNativeEvent(PR_TRUE) ? true : false;
++}
++
++void NotifyEvent()
++{
++}
++
++}
+diff --git a/widget/src/webos/nsAppShell.h b/widget/src/webos/nsAppShell.h
+--- a/widget/src/webos/nsAppShell.h
++++ b/widget/src/webos/nsAppShell.h
+@@ -56,6 +56,7 @@ public:
+ 
+     nsresult Init();
+     static void ScheduleRedraw();
++    virtual PRBool ProcessNextNativeEvent(PRBool mayWait);
+ 
+     gfxIntSize mScreenBounds;
+     PDL_Orientation mOrientation;
+@@ -70,8 +71,12 @@ protected:
+     virtual void ScheduleNativeEventCallback();
+     PRBool ShouldCoalesceEvent(SDL_Event &event);
+     PRBool CanCoalesceEvents(SDL_Event &event1, SDL_Event &event2);
+-    virtual PRBool ProcessNextNativeEvent(PRBool mayWait);
+ };
+ 
++namespace mozilla {
++bool ProcessNextEvent();
++void NotifyEvent();
++}
++
+ #endif // nsAppShell_h__
+ 
