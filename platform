@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1282529825 25200
+# Date 1283997823 25200
 # Node ID dc4aba80149e52b6fb7dec6ec7281bcd9b7aa86b
-# Parent 84d6e9c25eaab97b5fea0863d19292694453996c
+# Parent eca6a90fa02c15cfde3b67104a785e9f10c183ce
 [palm] General platform fixes
 * * *
 [palm] Avoid crash when running from the launcher
@@ -33,7 +33,7 @@ diff --git a/js/src/assembler/assembler/MacroAssemblerARM.cpp b/js/src/assembler
 diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsHttpHandler.cpp
 --- a/netwerk/protocol/http/nsHttpHandler.cpp
 +++ b/netwerk/protocol/http/nsHttpHandler.cpp
-@@ -99,6 +99,10 @@
+@@ -100,6 +100,10 @@
  #include <os2.h>
  #endif
  
@@ -44,8 +44,8 @@ diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsH
  //-----------------------------------------------------------------------------
  using namespace mozilla::net;
  #ifdef MOZ_IPC
-@@ -688,6 +692,8 @@ nsHttpHandler::InitUserAgentComponents()
-     "BeOS"
+@@ -711,6 +715,8 @@ nsHttpHandler::InitUserAgentComponents()
+     "Maemo"
  #elif defined(MOZ_X11)
      "X11"
 +#elif defined(WEBOS)
@@ -53,7 +53,7 @@ diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsH
  #else
      "?"
  #endif
-@@ -748,6 +754,13 @@ nsHttpHandler::InitUserAgentComponents()
+@@ -771,6 +777,13 @@ nsHttpHandler::InitUserAgentComponents()
          (::Gestalt(gestaltSystemVersionMinor, &minorVersion) == noErr)) {
          mOscpu += nsPrintfCString(" %d.%d", majorVersion, minorVersion);
      }

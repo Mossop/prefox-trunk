@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1282633233 25200
+# Date 1284000078 25200
 # Node ID 07f470a80f70e9a04b9dcff0e2db777130fddbea
-# Parent 29ac0213b54cfaee7fdaf4aec9b5230dc8183abb
+# Parent a84393d459c834405fab86c54e92342e5d28fe49
 [palm] Initial build configuration for PDK
 * * *
 [palm] Fix build config dependency hacks
@@ -20,7 +20,7 @@
 diff --git a/config/autoconf.mk.in b/config/autoconf.mk.in
 --- a/config/autoconf.mk.in
 +++ b/config/autoconf.mk.in
-@@ -671,6 +671,10 @@ MOZ_OFFICIAL_BRANDING = @MOZ_OFFICIAL_BR
+@@ -675,6 +675,10 @@ MOZ_OFFICIAL_BRANDING = @MOZ_OFFICIAL_BR
  HAVE_CLOCK_MONOTONIC = @HAVE_CLOCK_MONOTONIC@
  REALTIME_LIBS = @REALTIME_LIBS@
  
@@ -193,7 +193,7 @@ diff --git a/configure.in b/configure.in
  else
      OS_TARGET=`uname -s`
      OS_ARCH=`uname -s | sed -e 's|/|_|g'`
-@@ -2829,6 +2934,15 @@ alpha*-*-osf*)
+@@ -2830,6 +2935,15 @@ alpha*-*-osf*)
      MOZ_OPTIMIZE_FLAGS="-Os -freorder-blocks -fno-reorder-functions -fomit-frame-pointer"
      ;;
  
@@ -209,7 +209,7 @@ diff --git a/configure.in b/configure.in
  esac
  
  dnl Only one oddball right now (QNX), but this gives us flexibility
-@@ -4976,6 +5090,24 @@ case "${target}" in
+@@ -5006,6 +5120,25 @@ case "${target}" in
          ;;
  esac
  
@@ -219,6 +219,7 @@ diff --git a/configure.in b/configure.in
 +        MOZ_OGG=
 +        MOZ_WAVE=
 +        MOZ_WEBM=
++        MOZ_RAW=
 +        USE_ARM_KUSER=1
 +        MOZ_INSTALLER=
 +        MOZ_CRASHREPORTER=
@@ -234,7 +235,7 @@ diff --git a/configure.in b/configure.in
  MOZ_ARG_ENABLE_STRING(application,
  [  --enable-application=APP
                            Options include:
-@@ -5096,7 +5228,8 @@ MOZ_ARG_HEADER(Toolkit Options)
+@@ -5126,7 +5259,8 @@ MOZ_ARG_HEADER(Toolkit Options)
          -o "$_DEFAULT_TOOLKIT" = "cairo-beos" \
          -o "$_DEFAULT_TOOLKIT" = "cairo-os2" \
          -o "$_DEFAULT_TOOLKIT" = "cairo-cocoa" \
@@ -244,8 +245,8 @@ diff --git a/configure.in b/configure.in
      then
          dnl nglayout only supports building with one toolkit,
          dnl so ignore everything after the first comma (",").
-@@ -5211,6 +5344,12 @@ cairo-android)
-     MOZ_WEBGL=
+@@ -5241,6 +5375,12 @@ cairo-android)
+     MOZ_WEBGL=1
      ;;
  
 +cairo-webos)
@@ -257,7 +258,7 @@ diff --git a/configure.in b/configure.in
  esac
  
  if test "$MOZ_ENABLE_XREMOTE"; then
-@@ -7271,7 +7410,14 @@ if test "$MOZ_MEMORY"; then
+@@ -7328,7 +7468,14 @@ if test "$MOZ_MEMORY"; then
      export WRAP_MALLOC_LIB="-L$_objdir/dist/lib -lmozalloc"
      ;;
    *)
@@ -276,7 +277,7 @@ diff --git a/configure.in b/configure.in
 diff --git a/js/src/config/autoconf.mk.in b/js/src/config/autoconf.mk.in
 --- a/js/src/config/autoconf.mk.in
 +++ b/js/src/config/autoconf.mk.in
-@@ -340,5 +340,8 @@ ENABLE_TRACEJIT = @ENABLE_TRACEJIT@
+@@ -339,5 +339,8 @@ ENABLE_TRACEJIT = @ENABLE_TRACEJIT@
  NANOJIT_ARCH = @NANOJIT_ARCH@
  HAVE_ARM_SIMD= @HAVE_ARM_SIMD@
  
@@ -438,7 +439,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
      # The ExceptionHandling framework is needed for Objective-C exception
      # logging code in nsObjCExceptions.h. Currently we only use that in debug
      # builds.
-@@ -2629,7 +2712,7 @@ sparc-*)
+@@ -2630,7 +2713,7 @@ sparc-*)
  esac
  
  case "$target" in
@@ -447,7 +448,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
      AC_DEFINE(AVMPLUS_UNIX)
      AC_DEFINE(AVMPLUS_LINUX)
      ;;
-@@ -4319,7 +4402,14 @@ if test "$MOZ_MEMORY"; then
+@@ -4320,7 +4403,14 @@ if test "$MOZ_MEMORY"; then
      AC_DEFINE(MOZ_MEMORY_ANDROID)
      ;;
    *)
@@ -463,7 +464,7 @@ diff --git a/js/src/configure.in b/js/src/configure.in
      ;;
    esac
  fi
-@@ -5407,6 +5497,20 @@ if test "$JS_HAS_CTYPES"; then
+@@ -5411,6 +5501,20 @@ if test "$JS_HAS_CTYPES"; then
  
        ac_configure_args="$ac_configure_args --build=$build --host=${target_cpu}-${target_os} HOST_CC=\"$HOST_CC\""
        ;;
@@ -628,7 +629,7 @@ diff --git a/security/manager/Makefile.in b/security/manager/Makefile.in
 diff --git a/toolkit/library/Makefile.in b/toolkit/library/Makefile.in
 --- a/toolkit/library/Makefile.in
 +++ b/toolkit/library/Makefile.in
-@@ -273,6 +273,12 @@ endif
+@@ -267,6 +267,12 @@ endif
  
  include $(topsrcdir)/config/rules.mk
  
