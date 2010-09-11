@@ -1,27 +1,15 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1282371430 25200
+# Date 1284241929 25200
 # Node ID 4855ce897bf3effec178fa6ede9499e4e95bd51f
-# Parent 95a41407b7e6ec0e2dd20dd117040dec21bb50d8
+# Parent 02c467b1b16b7059808d7026594630420c6ee9e1
 [palm] Application packaging
 
-diff --git a/embedding/Makefile.in b/embedding/Makefile.in
---- a/embedding/Makefile.in
-+++ b/embedding/Makefile.in
-@@ -56,4 +56,8 @@ ifeq ($(OS_TARGET),Android)
- TOOL_DIRS = android
- endif
- 
-+ifdef WEBOS
-+TOOL_DIRS = webos
-+endif
-+
- include $(topsrcdir)/config/rules.mk
 diff --git a/embedding/webos/Makefile.in b/embedding/webos/Makefile.in
 new file mode 100644
 --- /dev/null
 +++ b/embedding/webos/Makefile.in
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,94 @@
 +# ***** BEGIN LICENSE BLOCK *****
 +# Version: MPL 1.1/GPL 2.0/LGPL 2.1
 +#
@@ -66,9 +54,9 @@ new file mode 100644
 +
 +include $(DEPTH)/config/autoconf.mk
 +
-+APP_VERSION = 1.0.0
++APP_VERSION = 0.8.0
 +
-+PKG_NAME = com.fractalbrew.$(MOZ_APP_NAME)_$(APP_VERSION)_all.ipk
++IPK_NAME = com.fractalbrew.$(MOZ_APP_NAME)_$(APP_VERSION)_all.ipk
 +
 +DEFINES += \
 +  -DMOZ_APP_DISPLAYNAME=$(MOZ_APP_DISPLAYNAME) \
@@ -76,23 +64,16 @@ new file mode 100644
 +  -DAPP_VERSION=$(APP_VERSION) \
 +  $(NULL)
 +
-+COPY_FILES = \
-+	chrome \
-+	components \
-+	defaults \
-+	modules \
-+	res \
-+	application.ini \
-+	chrome.manifest \
-+	greprefs.js \
-+	platform.ini \
-+	plugin-container \
-+	$(MOZ_APP_NAME) \
++NO_PKG_FILES += \
++	dependentlibs.list \
++	nspr-config \
++	run-mozilla.sh \
++	xpcshell \
++	xpt_dump \
++	xpt_link \
 +	$(NULL)
 +
-+NATIVE_LIBS = $(shell cat $(DIST)/bin/dependentlibs.list) libxpcom.so libnssckbi.so libfreebl3.so
-+
-+PACKAGE_FILES = \
++IPK_FILES = \
 +	appinfo.json \
 +	icon.png \
 +	splashscreen.png \
@@ -100,6 +81,10 @@ new file mode 100644
 +	$(NULL)
 +
 +include $(topsrcdir)/config/rules.mk
++
++PACKAGER_NO_LIBS=1
++
++include $(topsrcdir)/toolkit/mozapps/installer/packager.mk
 +
 +appinfo.json: appinfo.json.in
 +	$(PYTHON) $(topsrcdir)/config/Preprocessor.py \
@@ -109,17 +94,16 @@ new file mode 100644
 +	$(PYTHON) $(topsrcdir)/config/Preprocessor.py \
 +             $(AUTOMATION_PPARGS) $(DEFINES) $(ACDEFINES) $< > $@
 +
-+package:: $(PACKAGE_FILES)
-+	rm -rf $(DIST)/webos
-+	mkdir -p $(DIST)/webos
-+	$(INSTALL) $(foreach f,$^,"$f") $(DIST)/webos
-+	@(for f in $(COPY_FILES) ; do if [ -e $(DIST)/bin/$$f ]; then echo $$f; cp -r $(DIST)/bin/$$f $(DIST)/webos; fi; done)
-+	@(for f in $(NATIVE_LIBS) ; do if [ -e $(DIST)/bin/$$f ]; then echo $$f; cp $(DIST)/bin/$$f $(DIST)/webos; fi; done)
-+	@(for f in $(NATIVE_LIBS) ; do if [ -e $(DIST)/webos/$$f ]; then $(STRIP) $(DIST)/webos/$$f; fi; done)
-+	$(PALM_SDK)/bin/palm-package -o $(DIST) $(DIST)/webos
++deploy: $(DIST)/$(IPK_NAME)
++	$(PALM_SDK)/bin/palm-install $(DIST)/$(IPK_NAME)
 +
-+install:: $(DIST)/$(PKG_NAME)
-+	$(PALM_SDK)/bin/palm-install $(DIST)/$(PKG_NAME)
++installer: $(IPK_FILES)
++	@$(MAKE) stage-package
++ifdef MOZ_OMNIJAR
++	@(cd $(DIST)/$(STAGEPATH)$(MOZ_PKG_DIR)$(_BINPATH) && $(PACK_OMNIJAR))
++endif
++	$(INSTALL) $(foreach f,$^,"$f") $(DIST)/$(STAGEPATH)$(MOZ_PKG_DIR)$(_BINPATH)
++	$(PALM_SDK)/bin/palm-package -o $(DIST) $(DIST)/$(STAGEPATH)$(MOZ_PKG_DIR)$(_BINPATH)
 diff --git a/embedding/webos/appinfo.json.in b/embedding/webos/appinfo.json.in
 new file mode 100644
 --- /dev/null
@@ -132,7 +116,7 @@ new file mode 100644
 +	"vendor": "Fractal Brew Labs",
 +	"type": "pdk",
 +	"main": "@MOZ_APP_NAME@",
-+	"title": "@MOZ_APP_DISPLAYNAME@",
++	"title": "@MOZ_APP_DISPLAYNAME@ Alpha",
 +	"icon": "icon.png"
 +}
 diff --git a/embedding/webos/icon.png b/embedding/webos/icon.png

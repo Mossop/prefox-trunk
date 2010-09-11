@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1284000078 25200
+# Date 1284228754 25200
 # Node ID 07f470a80f70e9a04b9dcff0e2db777130fddbea
-# Parent a84393d459c834405fab86c54e92342e5d28fe49
+# Parent 3e1939477d6d15422464eb2a6b3d27c20f6708cc
 [palm] Initial build configuration for PDK
 * * *
 [palm] Fix build config dependency hacks
@@ -47,7 +47,7 @@ diff --git a/config/rules.mk b/config/rules.mk
 diff --git a/configure.in b/configure.in
 --- a/configure.in
 +++ b/configure.in
-@@ -345,6 +345,108 @@ AC_SUBST(ANDROID_SDK)
+@@ -345,6 +345,109 @@ AC_SUBST(ANDROID_SDK)
  AC_SUBST(ANDROID_TOOLS)
  
  dnl ========================================================
@@ -140,6 +140,7 @@ diff --git a/configure.in b/configure.in
 +        HOST_LDFLAGS=" "
 +    fi
 +
++    MOZ_CHROME_FILE_FORMAT=omni
 +    CROSS_COMPILE=1
 +    WEBOS=1
 +    PALM_PDK="${palm_pdk}"
@@ -156,7 +157,7 @@ diff --git a/configure.in b/configure.in
  dnl Checks for compilers.
  dnl ========================================================
  dnl Set CROSS_COMPILE in the environment when running configure
-@@ -441,18 +543,18 @@ if test -n "$CROSS_COMPILE" -a "$target"
+@@ -441,18 +544,18 @@ if test -n "$CROSS_COMPILE" -a "$target"
      CFLAGS="$HOST_CFLAGS"
      LDFLAGS="$HOST_LDFLAGS"
  
@@ -183,7 +184,7 @@ diff --git a/configure.in b/configure.in
      
      CC=$_SAVE_CC
      CFLAGS=$_SAVE_CFLAGS
-@@ -1263,6 +1365,9 @@ if test -n "$CROSS_COMPILE"; then
+@@ -1263,6 +1366,9 @@ if test -n "$CROSS_COMPILE"; then
      case "${target}" in
          arm-android-eabi) OS_ARCH=Linux OS_TARGET=Android ;;
      esac
@@ -193,7 +194,7 @@ diff --git a/configure.in b/configure.in
  else
      OS_TARGET=`uname -s`
      OS_ARCH=`uname -s | sed -e 's|/|_|g'`
-@@ -2830,6 +2935,15 @@ alpha*-*-osf*)
+@@ -2830,6 +2936,15 @@ alpha*-*-osf*)
      MOZ_OPTIMIZE_FLAGS="-Os -freorder-blocks -fno-reorder-functions -fomit-frame-pointer"
      ;;
  
@@ -209,7 +210,7 @@ diff --git a/configure.in b/configure.in
  esac
  
  dnl Only one oddball right now (QNX), but this gives us flexibility
-@@ -5006,6 +5120,25 @@ case "${target}" in
+@@ -5006,6 +5121,25 @@ case "${target}" in
          ;;
  esac
  
@@ -235,7 +236,7 @@ diff --git a/configure.in b/configure.in
  MOZ_ARG_ENABLE_STRING(application,
  [  --enable-application=APP
                            Options include:
-@@ -5126,7 +5259,8 @@ MOZ_ARG_HEADER(Toolkit Options)
+@@ -5126,7 +5260,8 @@ MOZ_ARG_HEADER(Toolkit Options)
          -o "$_DEFAULT_TOOLKIT" = "cairo-beos" \
          -o "$_DEFAULT_TOOLKIT" = "cairo-os2" \
          -o "$_DEFAULT_TOOLKIT" = "cairo-cocoa" \
@@ -245,7 +246,7 @@ diff --git a/configure.in b/configure.in
      then
          dnl nglayout only supports building with one toolkit,
          dnl so ignore everything after the first comma (",").
-@@ -5241,6 +5375,12 @@ cairo-android)
+@@ -5241,6 +5376,12 @@ cairo-android)
      MOZ_WEBGL=1
      ;;
  
@@ -258,7 +259,7 @@ diff --git a/configure.in b/configure.in
  esac
  
  if test "$MOZ_ENABLE_XREMOTE"; then
-@@ -7328,7 +7468,14 @@ if test "$MOZ_MEMORY"; then
+@@ -7328,7 +7469,14 @@ if test "$MOZ_MEMORY"; then
      export WRAP_MALLOC_LIB="-L$_objdir/dist/lib -lmozalloc"
      ;;
    *)

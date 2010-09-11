@@ -1,8 +1,8 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1283997823 25200
+# Date 1284234352 25200
 # Node ID dc4aba80149e52b6fb7dec6ec7281bcd9b7aa86b
-# Parent eca6a90fa02c15cfde3b67104a785e9f10c183ce
+# Parent f62d6b3738f7ad0a30df0bb5e595e67951fa9ffc
 [palm] General platform fixes
 * * *
 [palm] Avoid crash when running from the launcher
@@ -53,24 +53,10 @@ diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsH
  #else
      "?"
  #endif
-@@ -771,6 +777,13 @@ nsHttpHandler::InitUserAgentComponents()
-         (::Gestalt(gestaltSystemVersionMinor, &minorVersion) == noErr)) {
-         mOscpu += nsPrintfCString(" %d.%d", majorVersion, minorVersion);
-     }
-+#elif defined (WEBOS)
-+    mOscpu.AssignLiteral("webOS");
-+    PDL_OSVersion versionInfo;
-+    if (PDL_GetOSVersion(&versionInfo) == PDL_NOERROR) {
-+        mOscpu += nsPrintfCString(" %d.%d.%d", versionInfo.majorVersion,
-+                                  versionInfo.minorVersion, versionInfo.revision);
-+    }
- #elif defined (XP_UNIX) || defined (XP_BEOS)
-     struct utsname name;
-     
 diff --git a/toolkit/xre/nsXREDirProvider.cpp b/toolkit/xre/nsXREDirProvider.cpp
 --- a/toolkit/xre/nsXREDirProvider.cpp
 +++ b/toolkit/xre/nsXREDirProvider.cpp
-@@ -92,6 +92,9 @@
+@@ -93,6 +93,9 @@
  #define INCL_DOS
  #include <os2.h>
  #endif
@@ -80,7 +66,7 @@ diff --git a/toolkit/xre/nsXREDirProvider.cpp b/toolkit/xre/nsXREDirProvider.cpp
  
  #if defined(XP_MACOSX)
  #define APP_REGISTRY_NAME "Application Registry"
-@@ -1101,6 +1104,19 @@ nsXREDirProvider::GetUserDataDirectoryHo
+@@ -1112,6 +1115,19 @@ nsXREDirProvider::GetUserDataDirectoryHo
  
    rv = NS_NewNativeLocalFile(nsDependentCString(homeDir), PR_TRUE,
                               getter_AddRefs(localDir));

@@ -1,0 +1,34 @@
+# HG changeset patch
+# Parent 6097ec9b2120060e618488ae8150d9830e6152a1
+# User Dave Townsend <dtownsend@oxymoronical.com>
+# Date 1284245821 25200
+
+[palm] Fix omnijar packaging when there are no binary components
+
+diff --git a/toolkit/mozapps/installer/packager.mk b/toolkit/mozapps/installer/packager.mk
+--- a/toolkit/mozapps/installer/packager.mk
++++ b/toolkit/mozapps/installer/packager.mk
+@@ -237,13 +237,19 @@ NON_OMNIJAR_FILES = \
+ PACK_OMNIJAR	= \
+   rm -f omni.jar components/binary.manifest && \
+   grep -h '^binary-component' components/*.manifest > binary.manifest ; \
+-  sed -e 's/^binary-component/\#binary-component/' components/components.manifest > components.manifest && \
+-  mv components.manifest components && \
++  if [ -e components/components.manifest ]; then \
++    sed -e 's/^binary-component/\#binary-component/' components/components.manifest > components.manifest && \
++    mv components.manifest components; \
++  fi && \
+   find . | xargs touch -t 201001010000 && \
+   zip -r9mX omni.jar $(OMNIJAR_FILES) -x $(NON_OMNIJAR_FILES) && \
+   $(OPTIMIZE_JARS_CMD) --optimize $(_ABS_DIST)/jarlog/ ./ ./ && \
+-  mv binary.manifest components && \
+-  printf "manifest components/binary.manifest\n" > chrome.manifest
++  if [ -s binary.manifest ]; then \
++    mv binary.manifest components && \
++    printf "manifest components/binary.manifest\n" > chrome.manifest; \
++  else \
++    rm binary.manifest; \
++  fi
+ UNPACK_OMNIJAR	= \
+   $(OPTIMIZE_JARS_CMD) --deoptimize $(_ABS_DIST)/jarlog/ ./ ./ && \
+   unzip -o omni.jar && \
