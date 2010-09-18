@@ -1,10 +1,22 @@
 # HG changeset patch
 # User Dave Townsend <dtownsend@oxymoronical.com>
-# Date 1284251931 25200
+# Date 1284831765 25200
 # Node ID 4855ce897bf3effec178fa6ede9499e4e95bd51f
-# Parent 98dbfe83119e3e36ee5883e06eea9832b8c1303a
+# Parent f353b061b91433a92d25d49b7cf4d702843ea582
 [palm] Application packaging
 
+diff --git a/embedding/Makefile.in b/embedding/Makefile.in
+--- a/embedding/Makefile.in
++++ b/embedding/Makefile.in
+@@ -57,4 +57,8 @@ ifeq ($(OS_TARGET),Android)
+ TOOL_DIRS = android
+ endif
+ 
++ifdef WEBOS
++TOOL_DIRS = webos
++endif
++
+ include $(topsrcdir)/config/rules.mk
 diff --git a/embedding/webos/Makefile.in b/embedding/webos/Makefile.in
 new file mode 100644
 --- /dev/null
